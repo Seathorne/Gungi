@@ -8,5 +8,6 @@ namespace gungi_cs
 {
     class Board
     {
+        //every turn, call calcmoves and calcattacks for all pieces
     }
 }

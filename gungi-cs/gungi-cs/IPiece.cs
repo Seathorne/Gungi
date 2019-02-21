@@ -14,11 +14,9 @@ namespace gungi_cs
         void SetProperties();
 
 
-        void CalcMoves(int[][][] _open_tiles);
+        void CalcMoves(int[,,] _open_tiles);
 
-        void CalcAttacks(int[][][] _open_tiles);
-
-        void CalcDrops(int[][][] _open_tiles);
+        void CalcAttacks(int[,,] _open_tiles);
 
 
         void MoveTo(int _rank, int _file, int _tier);
@@ -26,9 +24,9 @@ namespace gungi_cs
 
         int GetPlayer();
 
-        int[][][] GetMoves();
+        int[,,] GetMoves();
 
-        int[][][] GetAttacks();
+        int[,,] GetAttacks();
 
         int[] GetLocation();
 

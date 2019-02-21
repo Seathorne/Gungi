@@ -6,6 +6,26 @@ using System.Threading.Tasks;
 
 namespace gungi_cs
 {
+    public class P
+    {
+        public static int
+            EMP = 0,
+            MAR = 1,
+            SPY = 2,
+            LIE = 3,
+            MAJ = 4,
+            GEN = 5,
+            ARC = 6,
+            KNI = 7,
+            SAM = 8,
+            CAN = 9,
+            COU = 10,
+            FOR = 11,
+            MUS = 12,
+            PAW = 13,
+            ANY = 14;
+    }
+
     public enum Type
     {
         General,
@@ -39,8 +59,8 @@ namespace gungi_cs
     public class Constants
     {
         private static Dictionary<Tuple<Type, Property>, int> table = new Dictionary<Tuple<Type, Property>, int>();
-        private static Dictionary<Type, int[][][]> movements = new Dictionary<Type, int[][][]>();
-        private static int[][][] moveset = new int[3][][];
+        private static Dictionary<Type, int[,,]> movements = new Dictionary<Type, int[,,]>();
+        private static int[,,] moveset = new int[3,9,9];
 
         public Constants()
         {
@@ -50,62 +70,6 @@ namespace gungi_cs
             table.Add(new Tuple<Type, Property>(Type.General, Property.StackBottom), 1);
             table.Add(new Tuple<Type, Property>(Type.General, Property.DropCheck), 1);
             table.Add(new Tuple<Type, Property>(Type.General, Property.PawnStart), 0);
-
-            moveset[0] = new int[][] {
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
-            moveset[1] = new int[][] {
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
-            moveset[2] = new int[][] {
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
-            movements.Add(Type.General, moveset);
 
             table.Add(new Tuple<Type, Property>(Type.Lt_General, Property.AttackStyle), (int)AttackStyle.Default);
             table.Add(new Tuple<Type, Property>(Type.Lt_General, Property.LeadStyle), (int)LeadStyle.Default);
@@ -197,7 +161,7 @@ namespace gungi_cs
             return table[new Tuple<Type, Property>(_type, _property)];
         }
 
-        public static int[][][] GetM(Type _type)
+        public static int[,,] GetM(Type _type)
         {
             return movements[_type];
         }
