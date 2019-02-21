@@ -10,11 +10,11 @@ namespace gungi_cs
     {
         public static int[,,] Not(int[,,] _array)
         {
-            for (int t = 0; t < 3; t++)
+            for (int t = 0; t < _array.GetLength(0); t++)
             {
-                for (int r = 0; r < 9; r++)
+                for (int r = 0; r < _array.GetLength(1); r++)
                 {
-                    for (int f = 0; f < 9; f++)
+                    for (int f = 0; f < _array.GetLength(2); f++)
                     {
                         _array[t, r, f] = 1 - _array[t, r, f];
                     }
@@ -25,11 +25,11 @@ namespace gungi_cs
 
         public static int[,,] And(int[,,] _array1, int[,,] _array2)
         {
-            for (int t = 0; t < 3; t++)
+            for (int t = 0; t < _array1.GetLength(0); t++)
             {
-                for (int r = 0; r < 9; r++)
+                for (int r = 0; r < _array1.GetLength(1); r++)
                 {
-                    for (int f = 0; f < 9; f++)
+                    for (int f = 0; f < _array2.GetLength(2); f++)
                     {
                         _array1[t, r, f] &= _array2[t, r, f];
                     }
@@ -40,11 +40,11 @@ namespace gungi_cs
 
         public static int[,,] And(int[,,] _array1, int[,,] _array2, int[,,] _array3)
         {
-            for (int t = 0; t < 3; t++)
+            for (int t = 0; t < _array1.GetLength(0); t++)
             {
-                for (int r = 0; r < 9; r++)
+                for (int r = 0; r < _array1.GetLength(1); r++)
                 {
-                    for (int f = 0; f < 9; f++)
+                    for (int f = 0; f < _array1.GetLength(2); f++)
                     {
                         _array1[t, r, f] &= _array2[t, r, f] & _array3[t, r, f];
                     }
@@ -55,11 +55,11 @@ namespace gungi_cs
 
         public static int[,,] Or(int[,,] _array1, int[,,] _array2)
         {
-            for (int t = 0; t < 3; t++)
+            for (int t = 0; t < _array1.GetLength(0); t++)
             {
-                for (int r = 0; r < 9; r++)
+                for (int r = 0; r < _array1.GetLength(1); r++)
                 {
-                    for (int f = 0; f < 9; f++)
+                    for (int f = 0; f < _array1.GetLength(2); f++)
                     {
                         _array1[t, r, f] |= _array2[t, r, f];
                     }
@@ -70,11 +70,11 @@ namespace gungi_cs
 
         public static int[,,] Or(int[,,] _array1, int[,,] _array2, int[,,] _array3)
         {
-            for (int t = 0; t < 3; t++)
+            for (int t = 0; t < _array1.GetLength(0); t++)
             {
-                for (int r = 0; r < 9; r++)
+                for (int r = 0; r < _array1.GetLength(1); r++)
                 {
-                    for (int f = 0; f < 9; f++)
+                    for (int f = 0; f < _array1.GetLength(2); f++)
                     {
                         _array1[t, r, f] |= _array2[t, r, f] | _array3[t, r, f];
                     }
@@ -83,7 +83,7 @@ namespace gungi_cs
             return _array1;
         }
 
-        public static int[,,] Enemy(int[,,] _array)
+        public static int[,,] Enemy(int[,,] _board)
         {
             for (int t = 0; t < 3; t++)
             {
@@ -91,14 +91,14 @@ namespace gungi_cs
                 {
                     for (int f = 0; f < 9; f++)
                     {
-                        _array[t, r, f] = (_array[t, r, f] < 0) ? 1 : 0;
+                        _board[t, r, f] = (_board[t, r, f] < 0) ? 1 : 0;
                     }
                 }
             }
-            return _array;
+            return _board;
         }
 
-        public static int[,,] Friend(int[,,] _array)
+        public static int[,,] Friend(int[,,] _board)
         {
             for (int t = 0; t < 3; t++)
             {
@@ -106,14 +106,14 @@ namespace gungi_cs
                 {
                     for (int f = 0; f < 9; f++)
                     {
-                        _array[t, r, f] = (_array[t, r, f] > 0) ? 1 : 0;
+                        _board[t, r, f] = (_board[t, r, f] > 0) ? 1 : 0;
                     }
                 }
             }
-            return _array;
+            return _board;
         }
 
-        public static int[,,] Full(int[,,] _array)
+        public static int[,,] Full(int[,,] _board)
         {
             for (int t = 0; t < 3; t++)
             {
@@ -121,14 +121,14 @@ namespace gungi_cs
                 {
                     for (int f = 0; f < 9; f++)
                     {
-                        _array[t, r, f] = (_array[t, r, f] != 0) ? 1 : 0;
+                        _board[t, r, f] = (_board[t, r, f] != 0) ? 1 : 0;
                     }
                 }
             }
-            return _array;
+            return _board;
         }
 
-        public static int[,,] NotFull(int[,,] _array)
+        public static int[,,] NotFull(int[,,] _board)
         {
             for (int t = 0; t < 3; t++)
             {
@@ -136,14 +136,14 @@ namespace gungi_cs
                 {
                     for (int f = 0; f < 9; f++)
                     {
-                        _array[t, r, f] = (_array[t, r, f] == 0) ? 1 : 0;
+                        _board[t, r, f] = (_board[t, r, f] == 0) ? 1 : 0;
                     }
                 }
             }
-            return _array;
+            return _board;
         }
 
-        public static int[,,] LineOfSight(int[,,] _set, int[] _location, int[,,] _board, out bool _lt_gen_in_sight)
+        public static int[,,] LineOfSight(int[,,] _move_set, int[] _location, int[,,] _board, out bool _lt_gen_in_sight)
         {
             int[,,] los = new int[3, 9, 9];
             _lt_gen_in_sight = false;
@@ -261,6 +261,21 @@ namespace gungi_cs
             }
 
             return los;
+        }
+
+        public static int[,,] Dupe(int[,,] _move_set, int _tier_to_dupe)
+        {
+            for (int t = 0; t < _move_set.GetLength(0); t++)
+            {
+                for (int r = 0; r < _move_set.GetLength(1); r++)
+                {
+                    for (int f = 0; f < _move_set.GetLength(2); f++)
+                    {
+                        _move_set[t, r, f] = _move_set[_tier_to_dupe, r, f];
+                    }
+                }
+            }
+            return _move_set;
         }
     }
 }

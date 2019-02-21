@@ -10,16 +10,15 @@ namespace gungi_cs
     {
         private int player;
         private int[] location;
-        private int[,,] move_set, move_curr, atk_set, atk_curr;
+        private int[,,] move_set, duped_move_set, move_curr, atk_set, atk_curr;
 
         public General(int _player)
         {
             player = _player;
 
             location = new int[3];
-            MoveTo(-1, -1, -1);
+            MoveTo(0, 0, 0);
 
-            move_set = new int[3,9,9];
             SetMovements();
 
             move_curr = new int[3,9,9];
@@ -27,15 +26,13 @@ namespace gungi_cs
 
         public void Main()
         {
-            SetMovements();
-            Console.Write(move_set);
-            Console.Write(move_set);
+            
         }
 
         public void SetMovements()
         {
-            //move_set must be complete moveset for this tile, but have all tiers available
-            move_set = Constants.GetM(Type.General);
+            move_set = Constants.GetMoves(P.GEN);
+            duped_move_set = Array.Dupe(move_set, location[0]);
         }
 
         public void SetProperties()
