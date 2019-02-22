@@ -78,7 +78,8 @@ namespace gungi_cs
 
         public void CalcMoves(int[,,] _board)
         {
-            Array.Combine(out move_curr, out atk_curr, move_set, location, _board, JUMP);
+            Array array = new Array();
+            array.Combine(out move_curr, out atk_curr, move_set, location, _board, JUMP);
         }
     }
 }

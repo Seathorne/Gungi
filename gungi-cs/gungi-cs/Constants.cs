@@ -9,6 +9,14 @@ namespace gungi_cs
     public class P
     {
         public static int
+            T = 3,
+            R = 9,
+            F = 9,
+
+            BL = 0,
+            WH = 1,
+            NA = 2,
+
             EMP = 0,
             MAR = 1,
             SPY = 2,
@@ -22,8 +30,8 @@ namespace gungi_cs
             COU = 10,
             FOR = 11,
             MUS = 12,
-            PAW = 13,
-            ANY = 99;
+            PAW = 13
+        ;
     }
 
     public class Constants
