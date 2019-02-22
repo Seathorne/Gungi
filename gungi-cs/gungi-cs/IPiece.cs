@@ -9,15 +9,7 @@ namespace gungi_cs
     public interface IPiece
     {
 
-        void SetMovements();
-
-        void SetProperties();
-
-
-        void CalcMoves(int[,,] _open_tiles);
-
-        void CalcAttacks(int[,,] _open_tiles);
-
+        void CalcMoves(int[,,] _board);
 
         void MoveTo(int _rank, int _file, int _tier);
 
