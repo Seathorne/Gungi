@@ -21,79 +21,89 @@ namespace gungi_cs
         int[,] lt_gen_sight, fort_range;
 
         // Valid Moves
-        int[,][,,] valid_moves, valid_attacks;        // valid_moves[r, f] = [,,] = valid moves for that piece              //TODO only need to calc valid moves for pieces on top
+        HashSet<Piece>[] active_pieces;
+        Dictionary<int[], int[,,]>[] line_of_sight, valid_moves, valid_attacks;            // valid_moves[r, f] = [,,] = valid moves for that piece              //TODO only need to calc valid moves for pieces on top
 
         // Check
         int[][] marshal_locations;
-        ArrayList checker_locations;
         int[,,] board_threatened;
 
         public Array()
         {
+            Clear();
+        }
+
+        public void Clear()
+        {
             player_color = P.NA;
 
-            board = new int[P.T, P.R, P.F];
-            board_open = new int[P.T, P.R, P.F];
-            board_ = new int[][,,] { new int[P.T, P.R, P.F], new int[P.T, P.R, P.F], new int[P.T, P.R, P.F] };
-            board_top = new int[P.R, P.F];
+            board = new int[P.TM, P.RM, P.FM];
+            board_open = new int[P.TM, P.RM, P.FM];
+            board_ = new int[][,,] { new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM] };
+            board_top = new int[P.RM, P.FM];
 
-            lt_gen_sight = new int[P.R, P.F];
-            fort_range = new int[P.R, P.F];
+            lt_gen_sight = new int[P.RM, P.FM];
+            fort_range = new int[P.RM, P.FM];
 
-            valid_moves = new int[P.R, P.F][,,];
-            valid_attacks = new int[P.R, P.F][,,];
+            active_pieces = new HashSet<Piece>[] { new HashSet<Piece>(), new HashSet<Piece>() };
+            valid_moves = new Dictionary<int[], int[,,]>[] { new Dictionary<int[], int[,,]>(), new Dictionary<int[], int[,,]>() };
+            valid_attacks = new Dictionary<int[], int[,,]>[] { new Dictionary<int[], int[,,]>(), new Dictionary<int[], int[,,]>() };
 
             marshal_locations = new int[2][];
-            checker_locations = new ArrayList();
-            board_threatened = new int[P.T, P.R, P.F];
+            board_threatened = new int[P.TM, P.RM, P.FM];
         }
 
         public void Update(int _player_color, int[,,] _board)
         {
+            Clear();
+
             player_color = _player_color;
             board = _board;
 
             UpdateBoardStates();
             Print("Board", board);
-            Print("Black", board_[P.BL]);
-            Print("White", board_[P.WH]);
-            Print("Empty", board_[P.NA]);
+            //Print("Black", board_[P.BL]);
+            //Print("White", board_[P.WH]);
+            //Print("Empty", board_[P.NA]);
             Print("Open", board_open);
             Print("Top", board_top);
         }
 
+        public void AddPiece(int _player, Piece _piece)
+        {
+            active_pieces[_player].Add(_piece);
+        }
+
         private void UpdateBoardStates()
         {
-            for (int t = 0; t < P.T; t++)
+            for (int t = 0; t < P.TM; t++)
             {
-                for (int r = 0; r < P.R; r++)
+                for (int r = 0; r < P.RM; r++)
                 {
-                    for (int f = 0; f < P.F; f++)
+                    for (int f = 0; f < P.FM; f++)
                     {
                         int p = board[t, r, f];
 
-                        board_[Color(p)][t, r, f] = 1;                    // Add piece to black, white, or empty board.
-                        if (Type(p) == P.MAR)
+                        board_[Color(p)][t, r, f] = 1;                      // Add piece to black, white, or empty board.
+                        if (!Empty(p))
                         {
-                            marshal_locations[Color(p)] = new int[] { t, r, f };         // Update marshal locations.
-                            board_top[r, f] = p;
-                        }
-                        else if (!Empty(p))                       // If any piece other than a marshal is in this tile:
-                        {
-                            board_top[r, f] = p;                        // If a new piece is found in this tower, update board_top with it.
-
-                            board_open[t, r, f] = 0;                    // If there is a piece in this spot, make this spot not open.
-                            if (t < P.T - 1)
+                            board_top[r, f] = p;                            // If a new piece is found in this tower, update board_top with it.
+                            if (Type(p) == P.MAR)
                             {
-                                board_open[t + 1, r, f] = 1;            // If this piece is in tier 1 or 2, make the spot above it open.
+                                marshal_locations[Color(p)] = new int[] { t, r, f };            // Update marshal locations.
+                            }
+                            else
+                            {
+                                board_open[t, r, f] = 0;                    // If there is a piece in this spot, make this spot not open.
+                                if (t < P.TM - 1)
+                                {
+                                    board_open[t + 1, r, f] = 1;            // If this piece is in tier 1 or 2, make the spot above it open.
+                                }
                             }
                         }
-                        else
+                        else if (t == 0)
                         {
-                            if (t == 0)
-                            {
-                                board_open[t, r, f] = 1;                // If a spot in tier 1 is empty, make it open.
-                            }
+                            board_open[t, r, f] = 1;                        // If a spot in tier 1 is empty, make it open.
                         }
                     }
                 }
@@ -111,6 +121,32 @@ namespace gungi_cs
                 //OR all attacks into board_threatened
                     //if Marshal location in board_threatened, now in check
                         //if in check, check for checkmate
+        }
+
+        private void UpdateMoves()
+        {
+            int[,,] moveset = new int[P.TM, P.RM, P.FM];
+            int[,,] attackset = new int[P.TM, P.RM, P.FM];
+            bool jump = false;
+
+            foreach (Piece piece in active_pieces[player_color]) {
+                for (int t = 0; t < P.TM; t++)
+                {
+                    for (int r = 0; r < P.RM; r++)
+                    {
+                        for (int f = 0; f < P.FM; f++)
+                        {
+                            //Combine(out valid_moves[player_color][_location], out valid_attacks[player_color][_location], moveset, _location, board, jump);
+
+
+
+
+                            valid_moves[player_color][piece.Location()] = moveset;
+                            valid_attacks[player_color][piece.Location()] = attackset;
+                        }
+                    }
+                }
+            }
         }
 
         private int Color(int _piece)

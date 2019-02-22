@@ -9,13 +9,23 @@ namespace gungi_cs
     public class P
     {
         public static int
-            T = 3,
-            R = 9,
-            F = 9,
+            T = 0,
+            R = 1,
+            F = 2,
+
+            TM = 3,
+            RM = 9,
+            FM = 9,
 
             BL = 0,
             WH = 1,
             NA = 2,
+
+            PASS = 0,
+            DONE = 1,
+            DROP = 2,
+            MOVE = 3,
+            ATTACK = 4,
 
             EMP = 0,
             MAR = 1,
@@ -30,7 +40,15 @@ namespace gungi_cs
             COU = 10,
             FOR = 11,
             MUS = 12,
-            PAW = 13
+            PAW = 13,
+
+            OC_R = 8,
+            OC_F = 8,
+
+            MIN_P = 18,
+            MAX_P = 26,
+            TOTAL_P = 38,
+            START_R = 3
         ;
     }
 
