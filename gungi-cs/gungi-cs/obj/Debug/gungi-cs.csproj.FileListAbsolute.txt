@@ -5,3 +5,10 @@ C:\Users\scott\Documents\Programming\seatho-c\gungi-cs\gungi-cs\obj\Debug\gungi-
 C:\Users\scott\Documents\Programming\seatho-c\gungi-cs\gungi-cs\obj\Debug\gungi-cs.csproj.CoreCompileInputs.cache
 C:\Users\scott\Documents\Programming\seatho-c\gungi-cs\gungi-cs\obj\Debug\gungi-cs.exe
 C:\Users\scott\Documents\Programming\seatho-c\gungi-cs\gungi-cs\obj\Debug\gungi-cs.pdb
+W:\Documents\Programming\seatho-c\gungi-cs\gungi-cs\obj\Debug\gungi-cs.csprojAssemblyReference.cache
+W:\Documents\Programming\seatho-c\gungi-cs\gungi-cs\obj\Debug\gungi-cs.csproj.CoreCompileInputs.cache
+W:\Documents\Programming\seatho-c\gungi-cs\gungi-cs\obj\Debug\gungi-cs.exe
+W:\Documents\Programming\seatho-c\gungi-cs\gungi-cs\obj\Debug\gungi-cs.pdb
+W:\Documents\Programming\seatho-c\gungi-cs\gungi-cs\bin\Debug\gungi-cs.exe.config
+W:\Documents\Programming\seatho-c\gungi-cs\gungi-cs\bin\Debug\gungi-cs.exe
+W:\Documents\Programming\seatho-c\gungi-cs\gungi-cs\bin\Debug\gungi-cs.pdb

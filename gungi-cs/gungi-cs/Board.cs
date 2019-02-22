@@ -8,6 +8,16 @@ namespace gungi_cs
 {
     class Board
     {
-        //every turn, call calcmoves and calcattacks for all pieces
+        public static void Main(String[] args)
+        {
+            Constants constants = new Constants();
+            General test_general = new General(1, 1, 3, 5);
+
+            Array.Print("Board", Constants.GetMoves(P.EMP));
+
+            test_general.CalcMoves(Constants.GetMoves(P.EMP));
+            Array.Print("Moves", test_general.GetMoves());
+            Array.Print("Attacks", test_general.GetAttacks());
+        }
     }
 }
