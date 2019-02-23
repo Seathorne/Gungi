@@ -13,17 +13,17 @@ namespace gungi_cs
         int player_color;
 
         // Board State
-        int[,,] board, board_open, board_threatened;
+        int[,,] board, board_threatened;
         int[,] board_top;
-        int[][,,] board_;
+        int[][,,] board_open;
 
         // Modifiers
         int[,] lt_gen_sight, fort_range;
 
         // Valid Moves
         HashSet<Piece> pieces, board_pieces, top_pieces,
-            unstackable_pieces, leading_pieces, elevating_pieces, jumping_pieces, teleporting_pieces, quickstart_pieces;
-        
+            unstackable_pieces, leading_pieces, elevating_pieces, jumping_pieces, teleporting_pieces;
+
         public Array()
         {
             Clear();
@@ -31,13 +31,12 @@ namespace gungi_cs
 
         public void Clear()
         {
-            player_color = P.NA;
+            player_color = P.EMPTY;
 
             board = new int[P.TM, P.RM, P.FM];
-            board_open = new int[P.TM, P.RM, P.FM];
             board_threatened = new int[P.TM, P.RM, P.FM];
             board_top = new int[P.RM, P.FM];
-            board_ = new int[][,,] { new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM] };
+            board_open = new int[][,,] { new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM] };
 
             lt_gen_sight = new int[P.RM, P.FM];
             fort_range = new int[P.RM, P.FM];
@@ -50,7 +49,6 @@ namespace gungi_cs
             elevating_pieces = new HashSet<Piece>();
             jumping_pieces = new HashSet<Piece>();
             teleporting_pieces = new HashSet<Piece>();
-            quickstart_pieces = new HashSet<Piece>();
         }
 
         public void Update(int _player_color, HashSet<Piece> _pieces, HashSet<Piece> _board_pieces)
@@ -65,23 +63,15 @@ namespace gungi_cs
             UpdateMoves();
 
             Print("Board", board);
-            //Print("Black", board_[P.BL]);
-            //Print("White", board_[P.WH]);
-            //Print("Empty", board_[P.NA]);
-            Print("Open", board_open);
             Print("Top", board_top);
+            Print("Open", board_open[P.EMPTY]);
         }
 
         private void UpdateBoardStates()
         {
-            Console.WriteLine("UPDATING BOARD STATES");
-            Print("PIECES", pieces);
-            Print("BOARD PIECES", board_pieces);
-
             foreach (Piece p in board_pieces)
             {
                 board[p.T(), p.R(), p.F()] = p.Sym();                   // Construct the board array.
-                board_[p.Color()][p.T(), p.R(), p.F()] = 1;             // Add piece to black, white, or empty board.
 
                 if (p.IsUnstackable())                                  // Add special pieces to their own sets.
                 {
@@ -102,10 +92,6 @@ namespace gungi_cs
                 if (p.Teleports())
                 {
                     teleporting_pieces.Add(p);
-                }
-                if (p.QuickStarts())
-                {
-                    quickstart_pieces.Add(p);
                 }
             }
 
@@ -133,13 +119,13 @@ namespace gungi_cs
                             board_top[r, f] = cell;                     // If a piece is found, it is the top piece.
                             if (t < P.TM - 1)
                             {
-                                board_open[t + 1, r, f] = 1;            // If this piece is in tier 1 or 2, make the cell above it open.
+                                board_open[P.EMPTY][t + 1, r, f] = 1;            // If this piece is in tier 1 or 2, make the cell above it open.
                             }
                             break;
                         }
                         else if (Empty(cell) && t == 0)
                         {
-                            board_open[t, r, f] = 1;                    // If a spot in tier 1 is empty, make it open.
+                            board_open[P.EMPTY][t, r, f] = 1;                    // If a spot in tier 1 is empty, make it open.
                         }
                     }
                 }
@@ -151,6 +137,7 @@ namespace gungi_cs
                 {
                     top_pieces.Add(p);                                  // Add top pieces to their own set.
                     p.SetTop(true);
+                    board_open[p.Color()][p.T(), p.R(), p.F()] = 1;     // Add piece to black or white board.
                 }
                 else
                 {
@@ -161,50 +148,70 @@ namespace gungi_cs
 
         private void UpdateMoves()
         {
-            int[,,] moveset = new int[P.TM, P.RM, P.FM];
-            int[,,] attackset = new int[P.TM, P.RM, P.FM];
-
             foreach (Piece p in pieces)
             {
                 if (p.OnBoard())
                 {
-                    if (p.JumpAttacks())
-                    {
-                        UpdateLineOfSight(p, !p.JumpAttacks());
-                    }
-                    UpdateLineOfSight(p, p.JumpAttacks());
-                    Console.WriteLine(p.Sym() + " " + p.LeadingPieceInSight().ToString());
-
+                    UpdateLineOfSight(p);
+                    UpdateInLeadingSight(p);
                 }
-                p.SetMoves(moveset);
-                p.SetAttacks(attackset);
-            }
-            for (int t = 0; t < P.TM; t++)
-            {
-                for (int r = 0; r < P.RM; r++)
+
+                UpdateX(p);
+
+                if (p.OnBoard())
                 {
-                    for (int f = 0; f < P.FM; f++)
-                    {
-                        //Combine(out valid_moves[player_color][_location], out valid_attacks[player_color][_location], moveset, _location, board, jump);
-
-
-
-
-                        //valid_moves[player_color][piece.Location()] = moveset;
-                        //valid_attacks[player_color][piece.Location()] = attackset;
-                    }
+                    Print("MOVES", p.Moves());
+                    Print("ATTACKS", p.Attacks());
                 }
             }
         }
 
-        private void UpdateLineOfSight(Piece _piece, bool _jump_attacks)
+        private void UpdateX(Piece _piece)
+        {
+            int[,,] moves = new int[P.TM, P.RM, P.FM];
+            int[,,] attacks = new int[P.TM, P.RM, P.FM];
+
+            if (_piece.OnBoard())
+            {
+                for (int t = 0; t < P.TM; t++)
+                {
+                    for (int r = 0; r < P.RM; r++)
+                    {
+                        for (int f = 0; f < P.FM; f++)
+                        {
+                            if (_piece.LeadingPieceInSight())
+                            {
+                                for (int m_t = 0; m_t < P.TM; m_t++)
+                                {
+                                    moves[t, r, f] |= _piece.Moveset()[m_t, r, f];
+                                    attacks[t, r, f] |= _piece.Moveset()[P.TM - 1, r, f];
+                                }
+                            }
+                            else
+                            {
+                                moves[t, r, f] = _piece.Moveset()[_piece.T(), r, f];
+                                attacks[t, r, f] = _piece.Moveset()[P.TM - 1, r, f];
+                            }
+                            moves[t, r, f] &= board_open[P.EMPTY][t, r, f] & (_piece.Teleports() ? 1 : _piece.LineOfSight()[r, f]);
+                            attacks[t, r, f] &= board_open[1 - _piece.Color()][t, r, f] & (_piece.Teleports() ? 1 : _piece.AttackLineOfSight()[r, f]);
+                        }
+                    }
+                }
+            }
+
+            _piece.SetMoves(moves);
+            _piece.SetAttacks(attacks);
+        }
+
+        private void UpdateLineOfSight(Piece _piece)
         {
             int[,] line_of_sight = new int[P.RM, P.FM];
-            bool leading_piece_in_sight = false;
+            int[,] attack_line_of_sight = new int[P.RM, P.FM];
 
-            for(int dir = 0; dir < P.NUM_DIR; dir++)
+            for (int dir = 0; dir < P.NUM_DIR; dir++)
             {
-                bool jumped = false;
+                bool seen_piece = false;
+                int jump_count = 0;
 
                 int sight_length = SightLength(dir, _piece.R(), _piece.F(), out int r_sign, out int f_sign);
                 for (int i = 1; i <= sight_length; i++)
@@ -212,38 +219,42 @@ namespace gungi_cs
                     int r_ = _piece.R() + r_sign * i;
                     int f_ = _piece.F() + f_sign * i;
 
-                    if (!_jump_attacks || jumped)
+                    if (!seen_piece)
                     {
                         line_of_sight[r_, f_] = 1;
-                    }
-
-                    if (!_jump_attacks)
-                    {
-                        foreach (Piece l_p in leading_pieces)
+                        if (!Empty(board_top[r_, f_]))
                         {
-                            leading_piece_in_sight |= ((l_p.Color() == _piece.Color()) && (l_p.R() == r_) && (l_p.F() == f_));
+                            seen_piece = true;
                         }
                     }
 
-                    if (!Empty(board_top[r_, f_]))
+                    if (_piece.JumpAttacks())
                     {
-                        if (!_jump_attacks || jumped) break;
-
-                        line_of_sight[r_, f_] = 0;
-                        jumped = true;
+                        if (jump_count == 1)
+                        {
+                            attack_line_of_sight[r_, f_] = 1;
+                        }
+                        if (!Empty(board_top[r_, f_]))
+                        {
+                            jump_count++;
+                        }
                     }
                 }
             }
 
-            if (_jump_attacks)
+            _piece.SetLineOfSight(line_of_sight);
+            _piece.SetAttackLineOfSight(attack_line_of_sight);
+        }
+
+        private void UpdateInLeadingSight(Piece _piece)
+        {
+            bool in_sight = false;
+            foreach (Piece l_p in leading_pieces)
             {
-                _piece.SetAttackLineOfSight(line_of_sight);
+                in_sight |= (l_p.LineOfSight()[_piece.R(), _piece.F()] == 1 && l_p.Color() == _piece.Color());
+                //crashes on second lt gen placement
             }
-            else
-            {
-                _piece.SetLineOfSight(line_of_sight);
-                _piece.SetLeadingPieceInSight(leading_piece_in_sight);
-            }
+            _piece.SetLeadingPieceInSight(in_sight);
         }
 
         private int SightLength(int _dir, int _rank, int _file, out int _r, out int _f)
@@ -283,9 +294,9 @@ namespace gungi_cs
 
         private int Color(int _piece)
         {
-            if (_piece < 0) return P.BL;
-            else if (_piece > 0) return P.WH;
-            else return P.NA;
+            if (_piece < 0) return P.BLACK;
+            else if (_piece > 0) return P.WHITE;
+            else return P.EMPTY;
         }
 
         private int Type(int _piece)
@@ -295,7 +306,7 @@ namespace gungi_cs
 
         private bool Empty(int _piece)
         {
-            return (Color(_piece) == P.NA);
+            return (Color(_piece) == P.EMPTY);
         }
 
         private bool Friendly(int _piece)
@@ -306,16 +317,6 @@ namespace gungi_cs
         private bool IsPiece(int _piece, bool _friendly, int _desired_piece_type)
         {
             return Type(_piece) == _desired_piece_type && Friendly(_piece) == _friendly;
-        }
-
-        public void Print(String _word, HashSet<Piece> _pieces)
-        {
-            String ret = _word + "\n";
-            foreach (Piece p in _pieces)
-            {
-                ret += p.ToString() + ", ";
-            }
-            Console.WriteLine(ret);
         }
 
         public void Print(String _word, int[,,] _array)
@@ -393,29 +394,7 @@ namespace gungi_cs
             }
             Console.WriteLine(ret);
         }
-
-        public int[,] Top(int[,,] _board)
-        {
-            int[,] ret = new int[9, 9];
-
-            for (int r = 0; r < 9; r++)
-            {
-                for (int f = 0; f < 9; f++)
-                {
-                    for (int t = 2; t >= 0; t--)
-                    {
-                        if (_board[t, r, f] != 0)
-                        {
-                            ret[r, f] = _board[t, r, f];
-                            break;
-                        }
-                    }
-                }
-            }
-
-            return ret;
-        }
-
+        /*
         public int StackHeight(int _r, int _f, int[,,] _board)
         {
             for (int t = 2; t >= 0; t--)
@@ -426,174 +405,6 @@ namespace gungi_cs
                 }
             }
             return 0;
-        }
-
-        public int[,] LineOfSight(int[] _location, int[,,] _board, out bool _lt_gen_in_sight, out int _elevated_tier, bool _jump)
-        {
-            int[,] los = new int[9, 9];
-            int[,] top_board = Top(_board);
-
-            int curr_t = _location[0];
-            int curr_r = _location[1];
-            int curr_f = _location[2];
-            // TODO Enemy ltgen and fort
-            _lt_gen_in_sight = false;
-            _elevated_tier = curr_t;
-
-            int ul = Math.Min(curr_r, curr_f);
-            int uu = curr_r;
-            int ur = Math.Min(curr_r, 8 - curr_f);
-            int ll = curr_f;
-            int rr = 8 - curr_f;
-            int dl = Math.Min(8 - curr_r, curr_f);
-            int dd = 8 - curr_r;
-            int dr = Math.Min(8 - curr_r, 8 - curr_f);
-
-            los[curr_r, curr_f] = 1;                                // Center
-
-            bool _jumped = !_jump;
-            for (int i = 1; i <= ul; i++)                           // Up-Left
-            {
-                int r_ = curr_r - i;
-                int f_ = curr_f - i;
-                los[r_, f_] = 1;
-                if (top_board[r_, f_] != 0)
-                {
-                    _lt_gen_in_sight |= (IsPiece(top_board[r_, f_], true, P.LIE));
-                    if (_jumped) break;
-                    else
-                    {
-                        los[r_, f_] = 0;
-                        _jumped = true;
-                    }
-                }
-            }
-            _jumped = !_jump;
-            for (int i = 1; i <= uu; i++)                           // Up
-            {
-                int r_ = curr_r - i;
-                int f_ = curr_f;
-                los[r_, f_] = 1;
-                if (top_board[r_, f_] != 0)
-                {
-                    _lt_gen_in_sight |= (IsPiece(top_board[r_, f_], true, P.LIE));
-                    if (_jumped) break;
-                    else
-                    {
-                        los[r_, f_] = 0;
-                        _jumped = true;
-                    }
-                }
-            }
-            _jumped = !_jump;
-            for (int i = 1; i <= ur; i++)                           // Up-Right
-            {
-                int r_ = curr_r - i;
-                int f_ = curr_f + i;
-                los[r_, f_] = 1;
-                if (top_board[r_, f_] != 0)
-                {
-                    _lt_gen_in_sight |= (IsPiece(top_board[r_, f_], true, P.LIE));
-                    if (_jumped) break;
-                    else
-                    {
-                        los[r_, f_] = 0;
-                        _jumped = true;
-                    }
-                }
-            }
-            _jumped = !_jump;
-            for (int i = 1; i <= ll; i++)                           // Left
-            {
-                int r_ = curr_r;
-                int f_ = curr_f - i;
-                los[r_, f_] = 1;
-                if (top_board[r_, f_] != 0)
-                {
-                    _lt_gen_in_sight |= (IsPiece(top_board[r_, f_], true, P.LIE));
-                    if (_jumped) break;
-                    else
-                    {
-                        los[r_, f_] = 0;
-                        _jumped = true;
-                    }
-                }
-            }
-            _jumped = !_jump;
-            for (int i = 1; i <= rr; i++)                           // Right
-            {
-                int r_ = curr_r;
-                int f_ = curr_f + i;
-                los[r_, f_] = 1;
-                if (top_board[r_, f_] != 0)
-                {
-                    _lt_gen_in_sight |= (IsPiece(top_board[r_, f_], true, P.LIE));
-                    if (_jumped) break;
-                    else
-                    {
-                        los[r_, f_] = 0;
-                        _jumped = true;
-                    }
-                }
-            }
-            _jumped = !_jump;
-            for (int i = 1; i <= dl; i++)                           // Down-Left
-            {
-                int r_ = curr_r + i;
-                int f_ = curr_f - i;
-                los[r_, f_] = 1;
-                if (top_board[r_, f_] != 0)
-                {
-                    _lt_gen_in_sight |= (IsPiece(top_board[r_, f_], true, P.LIE));
-                    if (_jumped) break;
-                    else
-                    {
-                        los[r_, f_] = 0;
-                        _jumped = true;
-                    }
-                }
-            }
-            _jumped = !_jump;
-            for (int i = 1; i <= dd; i++)                           // Down
-            {
-                int r_ = curr_r + i;
-                int f_ = curr_f;
-                los[r_, f_] = 1;
-                if (top_board[r_, f_] != 0)
-                {
-                    _lt_gen_in_sight |= (IsPiece(top_board[r_, f_], true, P.LIE));
-                    if (_jumped) break;
-                    else
-                    {
-                        los[r_, f_] = 0;
-                        _jumped = true;
-                    }
-                }
-            }
-            _jumped = !_jump;
-            for (int i = 1; i <= dr; i++)                           // Down-Right
-            {
-                int r_ = curr_r + i;
-                int f_ = curr_f + i;
-                los[r_, f_] = 1;
-                if (top_board[r_, f_] != 0)
-                {
-                    _lt_gen_in_sight |= (IsPiece(top_board[r_, f_], true, P.LIE));
-                    if (_jumped) break;
-                    else
-                    {
-                        los[r_, f_] = 0;
-                        _jumped = true;
-                    }
-                }
-            }
-
-            if (!_lt_gen_in_sight)
-            {
-                _elevated_tier = ElevatedTier(_location, _board, top_board);
-            }
-
-            return los;
         }
 
         public int ElevatedTier(int[] _location, int[,,] _board, int[,] _top_board)
@@ -670,84 +481,6 @@ namespace gungi_cs
             }
 
             return e_tier;
-        }
-
-        public void OpenBoard(int[,,] _board, out int[,,] _open_empty, out int[,,] _open_enemy)
-        {
-            _open_empty = new int[3, 9, 9];
-            _open_enemy = new int[3, 9, 9];
-
-            for (int r = 0; r < 9; r++)
-            {
-                for (int f = 0; f < 9; f++)
-                {
-                    for (int t = 2; t >= 0; t--)
-                    {
-                        if (IsPiece(_board[t, r, f], false, P.MAR))    //enemy marshal
-                        {
-                            _open_enemy[t, r, f] = 1;
-                            break;
-                        }
-                        else if (IsPiece(_board[t, r, f], true, P.MAR))    //friendly marshal
-                        {
-                            break;
-                        }
-                        else if (_board[t, r, f] != 0)
-                        {
-                            if (!Friendly(_board[t, r, f]))      //enemy
-                            {
-                                _open_enemy[t, r, f] = 1;
-                            }
-                            if(t < 2)
-                            {
-                                _open_empty[t + 1, r, f] = 1;
-                            }
-                            break;
-                        }
-                        else if (t == 0)
-                        {
-                            _open_empty[t, r, f] = 1;
-                            break;
-                        }
-                    }
-                }
-            }
-            return;
-        }
-
-        public void Combine(out int[,,] _valid_moves, out int[,,] _valid_captures, int[,,] _move_set, int[] _location, int[,,] _board, bool _jump)
-        {
-            _valid_moves = new int[3, 9, 9];
-            _valid_captures = new int[3, 9, 9];
-
-            // Need los exceptions for LtGen3, Archer2/3, Knight
-            int[,] los = LineOfSight(_location, _board, out bool lt_gen_in_sight, out int e_tier, _jump);
-
-            OpenBoard(_board, out int[,,] board_open, out int[,,] board_enemy);
-
-            for (int t = 0; t < 3; t++)
-            {
-                for (int r = 0; r < 9; r++)
-                {
-                    for (int f = 0; f < 9; f++)
-                    {
-                        _valid_moves[t, r, f] = board_open[t, r, f] & _move_set[e_tier, r, f] & los[r, f];
-                        _valid_captures[t, r, f] = board_enemy[t, r, f] & _move_set[e_tier, r, f] & los[r, f];
-
-                        if (lt_gen_in_sight)
-                        {
-                            for (int m_t = 0; m_t < 3; m_t++)
-                            {
-                                _valid_moves[t, r, f] |= board_open[t, r, f] & _move_set[m_t, r, f] & los[r, f];
-                                _valid_captures[t, r, f] |= board_enemy[t, r, f] & _move_set[m_t, r, f] & los[r, f];
-                            }
-                        }
-                    }
-                }
-            }
-            _valid_moves[_location[0], _location[1], _location[2]] = 1;
-            return;
-        }
-
+        }*/
     }
 }

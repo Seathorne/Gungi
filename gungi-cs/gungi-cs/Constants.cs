@@ -17,9 +17,9 @@ namespace gungi_cs
             RM = 9,
             FM = 9,
 
-            BL = 0,
-            WH = 1,
-            NA = 2,
+            BLACK = 0,
+            WHITE = 1,
+            EMPTY = 2,
 
             PASS = 0,
             DONE = 1,

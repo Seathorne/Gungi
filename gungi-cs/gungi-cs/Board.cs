@@ -15,7 +15,7 @@ namespace gungi_cs
         Piece selected_piece;
         int[] num_pieces_on_board, num_pieces_in_hand;
 
-        int turn;
+        int turn_player, turn_number;
         bool[] done_initial_phase;
 
         bool[] options;
@@ -26,11 +26,12 @@ namespace gungi_cs
 
             board.Init();
 
-            board.InitPieces(P.BL);
-            board.InitPieces(P.WH);
+            board.InitPieces(P.BLACK);
+            board.InitPieces(P.WHITE);
 
             board.ResetOptions();
 
+            board.UpdateBoard();
             while (true) board.Turn();
         }
 
@@ -43,7 +44,8 @@ namespace gungi_cs
             selected_piece = null;
             ClearBoard();
 
-            turn = P.BL;
+            turn_player = P.BLACK;
+            turn_number = 0;
             done_initial_phase = new bool[2];
             options = new bool[5];
         }
@@ -68,11 +70,12 @@ namespace gungi_cs
 
         private void Turn()
         {
-            Console.WriteLine("Turn: " + turn);
-            UpdateBoard();
+            turn_number++;
+
+            Console.WriteLine("Turn: " + turn_number + ", " + turn_player + "'s move");
 
             ResetOptions();
-            if (!done_initial_phase[P.BL] || !done_initial_phase[P.WH])
+            if (!done_initial_phase[P.BLACK] || !done_initial_phase[P.WHITE])
             {
                 InitialTurn();
             }
@@ -81,12 +84,15 @@ namespace gungi_cs
                 NextTurn();
             }
             Choose();
+
+            UpdateBoard();
+
             SwapTurn();
         }
 
         private void SwapTurn()
         {
-            turn = (turn == P.BL) ? P.WH : P.BL;
+            turn_player = (turn_player == P.BLACK) ? P.WHITE : P.BLACK;
         }
 
         private void UpdateBoard()
@@ -111,21 +117,21 @@ namespace gungi_cs
                 }
             }
 
-            array.Update(turn, pieces, board_pieces);
+            array.Update(turn_player, pieces, board_pieces);
         }
 
         private void InitialTurn()
         {
-            if (done_initial_phase[turn]) return;
+            if (done_initial_phase[turn_player]) return;
 
-            if (num_pieces_on_board[turn] < P.MIN_P)
+            if (num_pieces_on_board[turn_player] < P.MIN_P)
             {
                 options[P.DROP] = true;
 
             }
-            else if (num_pieces_on_board[turn] >= P.MAX_P)
+            else if (num_pieces_on_board[turn_player] >= P.MAX_P)
             {
-                done_initial_phase[turn] = true;
+                done_initial_phase[turn_player] = true;
             }
             else
             {
@@ -137,11 +143,11 @@ namespace gungi_cs
 
         private void NextTurn()
         {
-            if (num_pieces_in_hand[turn] > 0 && num_pieces_on_board[turn] < P.MAX_P)
+            if (num_pieces_in_hand[turn_player] > 0 && num_pieces_on_board[turn_player] < P.MAX_P)
             {
                 options[P.DROP] = true;
             }
-            if (num_pieces_on_board[turn] > 0)
+            if (num_pieces_on_board[turn_player] > 0)
             {
                 options[P.MOVE] = true;
                 options[P.MOVE] = true;
@@ -198,7 +204,7 @@ namespace gungi_cs
 
         private void Done()
         {
-            done_initial_phase[turn] = true;
+            done_initial_phase[turn_player] = true;
         }
 
         private void Drop()
@@ -216,7 +222,7 @@ namespace gungi_cs
 
             foreach (Piece piece in hand_pieces)
             {
-                if (piece.Type() == _type && piece.Color() == turn)
+                if (piece.Type() == _type && piece.Color() == turn_player)
                 {
                     piece.Drop(_tier, _rank, _file);
                     return;
@@ -259,46 +265,46 @@ namespace gungi_cs
             Console.WriteLine("Unimplemented.");
         }
 
-        private void InitPieces(int _player)
+        private void InitPieces(int _player_color)
         {
-            pieces.Add(new Piece(_player, P.MAR));
-            pieces.Add(new Piece(_player, P.SPY));
-            pieces.Add(new Piece(_player, P.SPY));
-            pieces.Add(new Piece(_player, P.LIE));
-            pieces.Add(new Piece(_player, P.LIE));
-            pieces.Add(new Piece(_player, P.MAJ));
-            pieces.Add(new Piece(_player, P.MAJ));
-            pieces.Add(new Piece(_player, P.MAJ));
-            pieces.Add(new Piece(_player, P.MAJ));
-            pieces.Add(new Piece(_player, P.GEN));
-            pieces.Add(new Piece(_player, P.GEN));
-            pieces.Add(new Piece(_player, P.GEN));
-            pieces.Add(new Piece(_player, P.GEN));
-            pieces.Add(new Piece(_player, P.GEN));
-            pieces.Add(new Piece(_player, P.GEN));
-            pieces.Add(new Piece(_player, P.ARC));
-            pieces.Add(new Piece(_player, P.ARC));
-            pieces.Add(new Piece(_player, P.KNI));
-            pieces.Add(new Piece(_player, P.KNI));
-            pieces.Add(new Piece(_player, P.SAM));
-            pieces.Add(new Piece(_player, P.SAM));
-            pieces.Add(new Piece(_player, P.CAN));
-            pieces.Add(new Piece(_player, P.CAN));
-            pieces.Add(new Piece(_player, P.COU));
-            pieces.Add(new Piece(_player, P.COU));
-            pieces.Add(new Piece(_player, P.FOR));
-            pieces.Add(new Piece(_player, P.FOR));
-            pieces.Add(new Piece(_player, P.MUS));
-            pieces.Add(new Piece(_player, P.MUS));
-            pieces.Add(new Piece(_player, P.PAW));
-            pieces.Add(new Piece(_player, P.PAW));
-            pieces.Add(new Piece(_player, P.PAW));
-            pieces.Add(new Piece(_player, P.PAW));
-            pieces.Add(new Piece(_player, P.PAW));
-            pieces.Add(new Piece(_player, P.PAW));
-            pieces.Add(new Piece(_player, P.PAW));
-            pieces.Add(new Piece(_player, P.PAW));
-            pieces.Add(new Piece(_player, P.PAW));
+            pieces.Add(new Piece(_player_color, P.MAR));
+            pieces.Add(new Piece(_player_color, P.SPY));
+            pieces.Add(new Piece(_player_color, P.SPY));
+            pieces.Add(new Piece(_player_color, P.LIE));
+            pieces.Add(new Piece(_player_color, P.LIE));
+            pieces.Add(new Piece(_player_color, P.MAJ));
+            pieces.Add(new Piece(_player_color, P.MAJ));
+            pieces.Add(new Piece(_player_color, P.MAJ));
+            pieces.Add(new Piece(_player_color, P.MAJ));
+            pieces.Add(new Piece(_player_color, P.GEN));
+            pieces.Add(new Piece(_player_color, P.GEN));
+            pieces.Add(new Piece(_player_color, P.GEN));
+            pieces.Add(new Piece(_player_color, P.GEN));
+            pieces.Add(new Piece(_player_color, P.GEN));
+            pieces.Add(new Piece(_player_color, P.GEN));
+            pieces.Add(new Piece(_player_color, P.ARC));
+            pieces.Add(new Piece(_player_color, P.ARC));
+            pieces.Add(new Piece(_player_color, P.KNI));
+            pieces.Add(new Piece(_player_color, P.KNI));
+            pieces.Add(new Piece(_player_color, P.SAM));
+            pieces.Add(new Piece(_player_color, P.SAM));
+            pieces.Add(new Piece(_player_color, P.CAN));
+            pieces.Add(new Piece(_player_color, P.CAN));
+            pieces.Add(new Piece(_player_color, P.COU));
+            pieces.Add(new Piece(_player_color, P.COU));
+            pieces.Add(new Piece(_player_color, P.FOR));
+            pieces.Add(new Piece(_player_color, P.FOR));
+            pieces.Add(new Piece(_player_color, P.MUS));
+            pieces.Add(new Piece(_player_color, P.MUS));
+            pieces.Add(new Piece(_player_color, P.PAW));
+            pieces.Add(new Piece(_player_color, P.PAW));
+            pieces.Add(new Piece(_player_color, P.PAW));
+            pieces.Add(new Piece(_player_color, P.PAW));
+            pieces.Add(new Piece(_player_color, P.PAW));
+            pieces.Add(new Piece(_player_color, P.PAW));
+            pieces.Add(new Piece(_player_color, P.PAW));
+            pieces.Add(new Piece(_player_color, P.PAW));
+            pieces.Add(new Piece(_player_color, P.PAW));
         }
     }
 }

@@ -109,7 +109,7 @@ namespace gungi_cs
 
         public int Sym()
         {
-            return type * (color == P.BL ? -1 : 1);
+            return type * (color == P.BLACK ? -1 : 1);
         }
 
         public int[] Location()
@@ -272,7 +272,7 @@ namespace gungi_cs
 
         public bool QuickStarts()
         {
-            return (type == P.PAW);
+            return false;// (type == P.PAW);
         }
 
         override
