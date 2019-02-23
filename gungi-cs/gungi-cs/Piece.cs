@@ -8,71 +8,93 @@ namespace gungi_cs
 {
     class Piece
     {
-        private int color, type;
+        private int color, type, elevated_tier;
         private int[] location;
-        private int[,,] moveset, curr_moves, curr_attacks;
-        private bool in_hand, on_board;
+        private int[,,] moveset, moves, attacks;
+        private int[,] line_of_sight, attack_line_of_sight;
+        private bool in_hand, on_board, top, in_leading_sight;
 
         public Piece(int _player_color, int _piece_number)
         {
-            Init();
-
             color = _player_color;
             type = _piece_number;
 
-            SetLocation(-1, -1, -1);
-        }
-
-        private void Init()
-        {
-            color = P.NA;
-            type = P.EMP;
-
-            moveset = new int[P.TM, P.RM, P.FM];
             location = new int[3];
+            moveset = new int[P.TM, P.RM, P.FM];
 
-            in_hand = true;
-            on_board = false;
+            PlaceInHand();
         }
 
         private void SetLocation(int _tier, int _rank, int _file)
         {
-            if (_tier == -1 || _rank == -1 || _file == -1)
-            {
-                in_hand = true;
-                on_board = false;
-            }
-
             location[P.T] = _tier;
             location[P.R] = _rank;
             location[P.F] = _file;
 
-            SetMoveset();
-        }
-
-        public void Drop(int _tier, int _rank, int _file)
-        {
-            if (in_hand)
+            if (_tier >= 0 && _tier < P.TM && _rank >= 0 && _rank < P.RM && _file >= 0 && _file < P.FM)
             {
-                in_hand = false;
-                on_board = true;
-                MoveTo(_tier, _rank, _file);
+                PlaceOnBoard();
+                SetMoveset();
+            }
+            else if (_tier == P.HAND && _rank == P.HAND && _file == P.HAND)
+            {
+                PlaceInHand();
+            }
+            else
+            {
+                PlaceInCaptured();
             }
         }
 
-        public void MoveTo(int _tier, int _rank, int _file)
+        private void PlaceInHand()
         {
-            if (on_board)
-            {
-                SetLocation(_tier, _rank, _file);
-            }
+            in_hand = true;
+            on_board = false;
+            top = false;
         }
 
-        public void Capture()
+        private void PlaceOnBoard()
+        {
+            in_hand = false;
+            on_board = true;
+            top = true;
+        }
+
+        private void PlaceInCaptured()
         {
             in_hand = false;
             on_board = false;
-            SetLocation(-2, -2, -2);
+            top = false;
+        }
+
+        public bool Drop(int _tier, int _rank, int _file)
+        {
+            if (in_hand)//and legal drop move
+            {
+                SetLocation(_tier, _rank, _file);
+                return true;
+            }
+            return false;
+        }
+
+        public bool BoardMove(int _tier, int _rank, int _file)
+        {
+            if (on_board)//and legal move
+            {
+                SetLocation(_tier, _rank, _file);
+                return true;
+            }
+            return false;
+        }
+
+        public bool Capture()
+        {
+            if (on_board)
+            {
+                SetLocation(-1, -1, -1);
+                return true;
+            }
+            return false;
         }
 
         public int Color()
@@ -85,14 +107,54 @@ namespace gungi_cs
             return type;
         }
 
+        public int Sym()
+        {
+            return type * (color == P.BL ? -1 : 1);
+        }
+
         public int[] Location()
         {
             return location;
         }
 
+        public int T()
+        {
+            return location[P.T];
+        }
+
+        public void SetLeadingPieceInSight(bool _in_sight)
+        {
+            in_leading_sight = _in_sight;
+        }
+
+        public bool LeadingPieceInSight()
+        {
+            return in_leading_sight;
+        }
+
+        public void SetElevatedTier(int _elevated_tier)
+        {
+            elevated_tier = _elevated_tier;
+        }
+
+        public int ElevatedTier()
+        {
+            return elevated_tier;
+        }
+
+        public int R()
+        {
+            return location[P.R];
+        }
+
+        public int F()
+        {
+            return location[P.F];
+        }
+
         private void SetMoveset()
         {
-            if (location[P.T] < 0 || location[P.R] < 0 || location[P.F] < 0) return;
+            if (!on_board) return;
 
             int shift_r = P.OC_R - location[P.R];
             int shift_f = P.OC_F - location[P.F];
@@ -114,24 +176,48 @@ namespace gungi_cs
             return moveset;
         }
 
-        public void SetCurrMoves(int[,,] _moveset)
+        public void SetLineOfSight(int[,] _line_of_sight)
         {
-            curr_moves = _moveset;
+            line_of_sight = _line_of_sight;
         }
 
-        public int[,,] CurrMoves()
+        public void SetAttackLineOfSight(int[,] _attack_line_of_sight)
         {
-            return curr_moves;
+            attack_line_of_sight = _attack_line_of_sight;
         }
 
-        public void SetCurrAttacks(int[,,] _attackset)
+        public int[,] LineOfSight()
         {
-            curr_attacks = _attackset;
+            return line_of_sight;
         }
 
-        public int[,,] CurrAttacks()
+        public int[,] AttackLineOfSight()
         {
-            return curr_attacks;
+            if (!JumpAttacks())
+            {
+                return line_of_sight;
+            }
+            return attack_line_of_sight;
+        }
+
+        public void SetMoves(int[,,] _moves)
+        {
+            moves = _moves;
+        }
+
+        public int[,,] Moves()
+        {
+            return moves;
+        }
+
+        public void SetAttacks(int[,,] _attacks)
+        {
+            attacks = _attacks;
+        }
+
+        public int[,,] Attacks()
+        {
+            return attacks;
         }
 
         public bool InHand()
@@ -144,12 +230,22 @@ namespace gungi_cs
             return on_board;
         }
 
+        public void SetTop(bool _top)
+        {
+            top = _top;
+        }
+
+        public bool Top()
+        {
+            return top;
+        }
+
         public bool Alive()
         {
             return in_hand || on_board;
         }
 
-        public bool Unstackable()
+        public bool IsUnstackable()
         {
             return (type == P.MAR);
         }
@@ -164,7 +260,7 @@ namespace gungi_cs
             return (type == P.FOR);
         }
 
-        public bool Jumps()
+        public bool JumpAttacks()
         {
             return (type == P.CAN);
         }
@@ -174,9 +270,15 @@ namespace gungi_cs
             return (type == P.ARC || type == P.KNI);
         }
 
-        public bool PawnStarts()
+        public bool QuickStarts()
         {
             return (type == P.PAW);
+        }
+
+        override
+        public String ToString()
+        {
+            return Sym() + "";
         }
     }
 }

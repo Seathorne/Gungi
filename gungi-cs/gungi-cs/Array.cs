@@ -13,21 +13,17 @@ namespace gungi_cs
         int player_color;
 
         // Board State
-        int[,,] board, board_open;
-        int[][,,] board_;
+        int[,,] board, board_open, board_threatened;
         int[,] board_top;
+        int[][,,] board_;
 
         // Modifiers
         int[,] lt_gen_sight, fort_range;
 
         // Valid Moves
-        HashSet<Piece>[] active_pieces;
-        Dictionary<int[], int[,,]>[] line_of_sight, valid_moves, valid_attacks;            // valid_moves[r, f] = [,,] = valid moves for that piece              //TODO only need to calc valid moves for pieces on top
-
-        // Check
-        int[][] marshal_locations;
-        int[,,] board_threatened;
-
+        HashSet<Piece> pieces, board_pieces, top_pieces,
+            unstackable_pieces, leading_pieces, elevating_pieces, jumping_pieces, teleporting_pieces, quickstart_pieces;
+        
         public Array()
         {
             Clear();
@@ -39,28 +35,35 @@ namespace gungi_cs
 
             board = new int[P.TM, P.RM, P.FM];
             board_open = new int[P.TM, P.RM, P.FM];
-            board_ = new int[][,,] { new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM] };
+            board_threatened = new int[P.TM, P.RM, P.FM];
             board_top = new int[P.RM, P.FM];
+            board_ = new int[][,,] { new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM] };
 
             lt_gen_sight = new int[P.RM, P.FM];
             fort_range = new int[P.RM, P.FM];
 
-            active_pieces = new HashSet<Piece>[] { new HashSet<Piece>(), new HashSet<Piece>() };
-            valid_moves = new Dictionary<int[], int[,,]>[] { new Dictionary<int[], int[,,]>(), new Dictionary<int[], int[,,]>() };
-            valid_attacks = new Dictionary<int[], int[,,]>[] { new Dictionary<int[], int[,,]>(), new Dictionary<int[], int[,,]>() };
-
-            marshal_locations = new int[2][];
-            board_threatened = new int[P.TM, P.RM, P.FM];
+            pieces = new HashSet<Piece>();
+            board_pieces = new HashSet<Piece>();
+            top_pieces = new HashSet<Piece>();
+            unstackable_pieces = new HashSet<Piece>();
+            leading_pieces = new HashSet<Piece>();
+            elevating_pieces = new HashSet<Piece>();
+            jumping_pieces = new HashSet<Piece>();
+            teleporting_pieces = new HashSet<Piece>();
+            quickstart_pieces = new HashSet<Piece>();
         }
 
-        public void Update(int _player_color, int[,,] _board)
+        public void Update(int _player_color, HashSet<Piece> _pieces, HashSet<Piece> _board_pieces)
         {
             Clear();
 
             player_color = _player_color;
-            board = _board;
+            pieces = _pieces;
+            board_pieces = _board_pieces;
 
             UpdateBoardStates();
+            UpdateMoves();
+
             Print("Board", board);
             //Print("Black", board_[P.BL]);
             //Print("White", board_[P.WH]);
@@ -69,83 +72,212 @@ namespace gungi_cs
             Print("Top", board_top);
         }
 
-        public void AddPiece(int _player, Piece _piece)
-        {
-            active_pieces[_player].Add(_piece);
-        }
-
         private void UpdateBoardStates()
         {
-            for (int t = 0; t < P.TM; t++)
-            {
-                for (int r = 0; r < P.RM; r++)
-                {
-                    for (int f = 0; f < P.FM; f++)
-                    {
-                        int p = board[t, r, f];
+            Console.WriteLine("UPDATING BOARD STATES");
+            Print("PIECES", pieces);
+            Print("BOARD PIECES", board_pieces);
 
-                        board_[Color(p)][t, r, f] = 1;                      // Add piece to black, white, or empty board.
-                        if (!Empty(p))
+            foreach (Piece p in board_pieces)
+            {
+                board[p.T(), p.R(), p.F()] = p.Sym();                   // Construct the board array.
+                board_[p.Color()][p.T(), p.R(), p.F()] = 1;             // Add piece to black, white, or empty board.
+
+                if (p.IsUnstackable())                                  // Add special pieces to their own sets.
+                {
+                    unstackable_pieces.Add(p);
+                }
+                if (p.Leads())
+                {
+                    leading_pieces.Add(p);
+                }
+                if (p.Elevates())
+                {
+                    elevating_pieces.Add(p);
+                }
+                if (p.JumpAttacks())
+                {
+                    jumping_pieces.Add(p);
+                }
+                if (p.Teleports())
+                {
+                    teleporting_pieces.Add(p);
+                }
+                if (p.QuickStarts())
+                {
+                    quickstart_pieces.Add(p);
+                }
+            }
+
+            for (int r = 0; r < P.RM; r++)
+            {
+                for (int f = 0; f < P.RM; f++)
+                {
+                    bool unstackable = false;
+                    foreach (Piece p in unstackable_pieces)
+                    {
+                        unstackable = (r == p.R() && f == p.F());
+                        if (unstackable)
                         {
-                            board_top[r, f] = p;                            // If a new piece is found in this tower, update board_top with it.
-                            if (Type(p) == P.MAR)
-                            {
-                                marshal_locations[Color(p)] = new int[] { t, r, f };            // Update marshal locations.
-                            }
-                            else
-                            {
-                                board_open[t, r, f] = 0;                    // If there is a piece in this spot, make this spot not open.
-                                if (t < P.TM - 1)
-                                {
-                                    board_open[t + 1, r, f] = 1;            // If this piece is in tier 1 or 2, make the spot above it open.
-                                }
-                            }
+                            board_top[r, f] = p.Sym();                  // If a marshal is found, it is the top piece, and the rest of the stack is not open.
+                            break;
                         }
-                        else if (t == 0)
+                    }
+
+                    for (int t = P.TM - 1; t >= 0; t--)
+                    {
+                        int cell = board[t, r, f];
+
+                        if (!unstackable && !Empty(cell))
                         {
-                            board_open[t, r, f] = 1;                        // If a spot in tier 1 is empty, make it open.
+                            board_top[r, f] = cell;                     // If a piece is found, it is the top piece.
+                            if (t < P.TM - 1)
+                            {
+                                board_open[t + 1, r, f] = 1;            // If this piece is in tier 1 or 2, make the cell above it open.
+                            }
+                            break;
+                        }
+                        else if (Empty(cell) && t == 0)
+                        {
+                            board_open[t, r, f] = 1;                    // If a spot in tier 1 is empty, make it open.
                         }
                     }
                 }
             }
-            
-            
-            
-            
-            //moves
-                //add all movesets to valid_moves
-                    //update lt_gen and fort whenever a piece of that type is calculated
-                    //lt_gen
-                    //fort
-                //add all attacks to valid_attacks
-                //OR all attacks into board_threatened
-                    //if Marshal location in board_threatened, now in check
-                        //if in check, check for checkmate
+
+            foreach (Piece p in board_pieces)
+            {
+                if (p.Sym() == board_top[p.R(), p.F()])
+                {
+                    top_pieces.Add(p);                                  // Add top pieces to their own set.
+                    p.SetTop(true);
+                }
+                else
+                {
+                    p.SetTop(false);
+                }
+            }
         }
 
         private void UpdateMoves()
         {
             int[,,] moveset = new int[P.TM, P.RM, P.FM];
             int[,,] attackset = new int[P.TM, P.RM, P.FM];
-            bool jump = false;
 
-            foreach (Piece piece in active_pieces[player_color]) {
-                for (int t = 0; t < P.TM; t++)
+            foreach (Piece p in pieces)
+            {
+                if (p.OnBoard())
                 {
-                    for (int r = 0; r < P.RM; r++)
+                    if (p.JumpAttacks())
                     {
-                        for (int f = 0; f < P.FM; f++)
-                        {
-                            //Combine(out valid_moves[player_color][_location], out valid_attacks[player_color][_location], moveset, _location, board, jump);
+                        UpdateLineOfSight(p, !p.JumpAttacks());
+                    }
+                    UpdateLineOfSight(p, p.JumpAttacks());
+                    Console.WriteLine(p.Sym() + " " + p.LeadingPieceInSight().ToString());
+
+                }
+                p.SetMoves(moveset);
+                p.SetAttacks(attackset);
+            }
+            for (int t = 0; t < P.TM; t++)
+            {
+                for (int r = 0; r < P.RM; r++)
+                {
+                    for (int f = 0; f < P.FM; f++)
+                    {
+                        //Combine(out valid_moves[player_color][_location], out valid_attacks[player_color][_location], moveset, _location, board, jump);
 
 
 
 
-                            valid_moves[player_color][piece.Location()] = moveset;
-                            valid_attacks[player_color][piece.Location()] = attackset;
-                        }
+                        //valid_moves[player_color][piece.Location()] = moveset;
+                        //valid_attacks[player_color][piece.Location()] = attackset;
                     }
                 }
+            }
+        }
+
+        private void UpdateLineOfSight(Piece _piece, bool _jump_attacks)
+        {
+            int[,] line_of_sight = new int[P.RM, P.FM];
+            bool leading_piece_in_sight = false;
+
+            for(int dir = 0; dir < P.NUM_DIR; dir++)
+            {
+                bool jumped = false;
+
+                int sight_length = SightLength(dir, _piece.R(), _piece.F(), out int r_sign, out int f_sign);
+                for (int i = 1; i <= sight_length; i++)
+                {
+                    int r_ = _piece.R() + r_sign * i;
+                    int f_ = _piece.F() + f_sign * i;
+
+                    if (!_jump_attacks || jumped)
+                    {
+                        line_of_sight[r_, f_] = 1;
+                    }
+
+                    if (!_jump_attacks)
+                    {
+                        foreach (Piece l_p in leading_pieces)
+                        {
+                            leading_piece_in_sight |= ((l_p.Color() == _piece.Color()) && (l_p.R() == r_) && (l_p.F() == f_));
+                        }
+                    }
+
+                    if (!Empty(board_top[r_, f_]))
+                    {
+                        if (!_jump_attacks || jumped) break;
+
+                        line_of_sight[r_, f_] = 0;
+                        jumped = true;
+                    }
+                }
+            }
+
+            if (_jump_attacks)
+            {
+                _piece.SetAttackLineOfSight(line_of_sight);
+            }
+            else
+            {
+                _piece.SetLineOfSight(line_of_sight);
+                _piece.SetLeadingPieceInSight(leading_piece_in_sight);
+            }
+        }
+
+        private int SightLength(int _dir, int _rank, int _file, out int _r, out int _f)
+        {
+            _r = 0;
+            _f = 0;
+            switch (_dir)
+            {
+                case P.UP_LEFT:
+                    _r = -1; _f = -1;
+                    return Math.Min(_rank, _file);
+                case P.UP:
+                    _r = -1;
+                    return _rank;
+                case P.UP_RIGHT:
+                    _r = -1; _f = 1;
+                    return Math.Min(_rank, P.FM - 1 - _file);
+                case P.LEFT:
+                    _f = -1;
+                    return _file;
+                case P.RIGHT:
+                    _f = 1;
+                    return P.FM - 1 - _file;
+                case P.DOWN_LEFT:
+                    _r = 1; _f = -1;
+                    return Math.Min(P.RM - 1 - _rank, _file);
+                case P.DOWN:
+                    _r = 1;
+                    return P.RM - 1 - _rank;
+                case P.DOWN_RIGHT:
+                    _r = 1; _f = 1;
+                    return Math.Min(P.RM - 1 - _rank, P.FM - 1 - _file);
+                default:
+                    return 0;
             }
         }
 
@@ -174,6 +306,16 @@ namespace gungi_cs
         private bool IsPiece(int _piece, bool _friendly, int _desired_piece_type)
         {
             return Type(_piece) == _desired_piece_type && Friendly(_piece) == _friendly;
+        }
+
+        public void Print(String _word, HashSet<Piece> _pieces)
+        {
+            String ret = _word + "\n";
+            foreach (Piece p in _pieces)
+            {
+                ret += p.ToString() + ", ";
+            }
+            Console.WriteLine(ret);
         }
 
         public void Print(String _word, int[,,] _array)

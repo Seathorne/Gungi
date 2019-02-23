@@ -8,7 +8,7 @@ namespace gungi_cs
 {
     public class P
     {
-        public static int
+        public const int
             T = 0,
             R = 1,
             F = 2,
@@ -42,14 +42,43 @@ namespace gungi_cs
             MUS = 12,
             PAW = 13,
 
+            HAND = 99,
+
             OC_R = 8,
             OC_F = 8,
+
+            NUM_DIR = 9,
+            UP_LEFT = 0,
+            UP = 1,
+            UP_RIGHT = 2,
+            LEFT = 3,
+            CENTER = 4,
+            RIGHT = 5,
+            DOWN_LEFT = 6,
+            DOWN = 7,
+            DOWN_RIGHT = 8,
+
+            UP_UP_LEFT = 9,
+            UP_UP_RIGHT = 10,
 
             MIN_P = 18,
             MAX_P = 26,
             TOTAL_P = 38,
             START_R = 3
         ;
+
+        public static int[,,] OpenBoard(int _tier, int _rank, int _file)
+        {
+            int[,,] open = new int[_tier, _rank, _file];
+            for (int r = 0; r < _rank; r++)
+            {
+                for (int f = 0; f < _file; f++)
+                {
+                    open[0, r, f] = 1;
+                }
+            }
+            return open;
+        }
     }
 
     public class Constants

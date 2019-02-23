@@ -52,7 +52,6 @@
     <Compile Include="General.cs" />
     <Compile Include="IPiece.cs" />
     <Compile Include="Board.cs" />
-    <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
