@@ -51,6 +51,22 @@ namespace gungi_cs
             teleporting_pieces = new HashSet<Piece>();
         }
 
+        public void ClearPiece(Piece _piece)
+        {
+            int[,,] blank = new int[P.TM, P.RM, P.FM];
+            int[,] blank_los = new int[P.RM, P.FM];
+
+            _piece.SetTop(false);
+            _piece.SetLeadingPieceInSight(false);
+            _piece.SetElevatedTier(_piece.T());
+
+            _piece.SetLineOfSight(blank_los);
+            _piece.SetAttackLineOfSight(blank_los);
+
+            _piece.SetMoves(blank);
+            _piece.SetAttacks(blank);
+        }
+
         public void Update(int _player_color, HashSet<Piece> _pieces, HashSet<Piece> _board_pieces)
         {
             Clear();
@@ -60,7 +76,7 @@ namespace gungi_cs
             board_pieces = _board_pieces;
 
             UpdateBoardStates();
-            UpdateMoves();
+            UpdatePieces();
 
             Print("Board", board);
             Print("Top", board_top);
@@ -71,6 +87,7 @@ namespace gungi_cs
         {
             foreach (Piece p in board_pieces)
             {
+                ClearPiece(p);
                 board[p.T(), p.R(), p.F()] = p.Sym();                   // Construct the board array.
 
                 if (p.IsUnstackable())                                  // Add special pieces to their own sets.
@@ -146,17 +163,18 @@ namespace gungi_cs
             }
         }
 
-        private void UpdateMoves()
+        private void UpdatePieces()
         {
-            foreach (Piece p in pieces)
+            foreach (Piece p in board_pieces)
             {
-                if (p.OnBoard())
+                UpdateLineOfSight(p);
+                UpdateInLeadingSight(p);
+                if (leading_pieces.Contains(p) && !p.JumpAttacks())
                 {
-                    UpdateLineOfSight(p);
-                    UpdateInLeadingSight(p);
+                    UpdateUpUpDiagSight(p);
                 }
 
-                UpdateX(p);
+                UpdateMoves(p);
 
                 if (p.OnBoard())
                 {
@@ -166,7 +184,33 @@ namespace gungi_cs
             }
         }
 
-        private void UpdateX(Piece _piece)
+        private void UpdateUpUpDiagSight(Piece _piece)
+        {
+            int[,] line_of_sight = _piece.LineOfSight();
+
+            int up_sight = SightLength(P.UP, _piece.R(), _piece.F(), out int x1, out int x2);
+            int left_sight = SightLength(P.LEFT, _piece.R(), _piece.F(), out int x3, out int x4);
+            int right_sight = SightLength(P.RIGHT, _piece.R(), _piece.F(), out int x5, out int x6);
+            if (up_sight >= 2)
+            {
+                bool up_open = (board_open[P.DROP][0, _piece.R() - 1, _piece.F()] | board_open[P.DROP][1, _piece.R() - 1, _piece.F()] | board_open[P.DROP][2, _piece.R() - 1, _piece.F()]) == 1;
+                if (up_open)
+                {
+                    if (left_sight >= 1)
+                    {
+                        line_of_sight[_piece.R() - 2, _piece.F() - 1] = 1;
+                    }
+                    if (right_sight >= 1)
+                    {
+                        line_of_sight[_piece.R() - 2, _piece.F() + 1] = 1;
+                    }
+                    _piece.SetLineOfSight(line_of_sight);
+                    _piece.SetAttackLineOfSight(line_of_sight);
+                }
+            }
+        }
+
+        private void UpdateMoves(Piece _piece)
         {
             int[,,] moves = new int[P.TM, P.RM, P.FM];
             int[,,] attacks = new int[P.TM, P.RM, P.FM];
@@ -251,8 +295,10 @@ namespace gungi_cs
             bool in_sight = false;
             foreach (Piece l_p in leading_pieces)
             {
-                in_sight |= (l_p.LineOfSight()[_piece.R(), _piece.F()] == 1 && l_p.Color() == _piece.Color());
-                //crashes on second lt gen placement
+                if (_piece != l_p)
+                {
+                    in_sight |= (_piece.LineOfSight()[l_p.R(), l_p.F()] == 1 && _piece.Color() == l_p.Color());
+                }
             }
             _piece.SetLeadingPieceInSight(in_sight);
         }

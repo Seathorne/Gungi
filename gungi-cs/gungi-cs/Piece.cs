@@ -117,11 +117,6 @@ namespace gungi_cs
             return location;
         }
 
-        public int T()
-        {
-            return location[P.T];
-        }
-
         public void SetLeadingPieceInSight(bool _in_sight)
         {
             in_leading_sight = _in_sight;
@@ -140,6 +135,11 @@ namespace gungi_cs
         public int ElevatedTier()
         {
             return elevated_tier;
+        }
+
+        public int T()
+        {
+            return location[P.T];
         }
 
         public int R()

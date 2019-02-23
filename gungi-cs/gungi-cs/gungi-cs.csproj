@@ -49,8 +49,6 @@
     <Compile Include="Array.cs" />
     <Compile Include="Piece.cs" />
     <Compile Include="Constants.cs" />
-    <Compile Include="General.cs" />
-    <Compile Include="IPiece.cs" />
     <Compile Include="Board.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
