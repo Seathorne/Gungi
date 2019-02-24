@@ -47,8 +47,10 @@ namespace gungi_cs
             HAND = 99,
             CAPTURED = -1,
 
-            OC_R = 8,
-            OC_F = 8,
+            RM_EXT = 17,
+            FM_EXT = 17,
+
+            NUM_SETUP_RANKS = 3,
 
             NUM_DIR = 9,
             UP_LEFT = 0,

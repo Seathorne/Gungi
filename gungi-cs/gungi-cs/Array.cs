@@ -10,6 +10,7 @@ namespace gungi_cs
     class Array
     {
         // Board State
+        bool setup_phase;
         int[,,] board, board_threatened;
         int[,] board_top;
         int[][,,] board_open;
@@ -24,6 +25,8 @@ namespace gungi_cs
 
         public Array()
         {
+            setup_phase = true;
+
             Clear();
         }
 
@@ -75,6 +78,8 @@ namespace gungi_cs
 
             UpdateBoardStates();
             UpdatePieces();
+
+            PrintBoard();
         }
 
         public void Select(Piece _piece)
@@ -87,14 +92,19 @@ namespace gungi_cs
             selected_piece = null;
         }
 
+        public void SetupDone()
+        {
+            setup_phase = false;
+        }
+
         private void UpdateBoardStates()
         {
             foreach (Piece p in board_pieces)
             {
                 ClearPiece(p);
-                board[p.T(), p.R(), p.F()] = p.Sym();                   // Construct the board array.
+                board[p.T(), p.R(), p.F()] = p.Sym();                       // Construct the board array.
 
-                if (p.IsUnstackable())                                  // Add special pieces to their own sets.
+                if (p.IsUnstackable())                                      // Add special pieces to their own sets.
                 {
                     unstackable_pieces.Add(p);
                 }
@@ -130,7 +140,7 @@ namespace gungi_cs
                         unstackable = (r == p.R() && f == p.F());
                         if (unstackable)
                         {
-                            board_top[r, f] = p.Sym();                  // If a marshal is found, it is the top piece, and the rest of the stack is not open.
+                            board_top[r, f] = p.Sym();                      // If a marshal is found, it is the top piece, and the rest of the stack is not open.
                             break;
                         }
                     }
@@ -141,16 +151,16 @@ namespace gungi_cs
 
                         if (!unstackable && !Empty(cell))
                         {
-                            board_top[r, f] = cell;                     // If a piece is found, it is the top piece.
+                            board_top[r, f] = cell;                         // If a piece is found, it is the top piece.
                             if (t < P.TM - 1)
                             {
-                                board_open[P.EMPTY][t + 1, r, f] = 1;            // If this piece is in tier 1 or 2, make the cell above it open.
+                                board_open[P.EMPTY][t + 1, r, f] = 1;       // If this piece is in tier 1 or 2, make the cell above it open.
                             }
                             break;
                         }
                         else if (Empty(cell) && t == 0)
                         {
-                            board_open[P.EMPTY][t, r, f] = 1;                    // If a spot in tier 1 is empty, make it open.
+                            board_open[P.EMPTY][t, r, f] = 1;               // If a spot in tier 1 is empty, make it open.
                         }
                     }
                 }
@@ -160,9 +170,9 @@ namespace gungi_cs
             {
                 if (p.Sym() == board_top[p.R(), p.F()])
                 {
-                    top_pieces.Add(p);                                  // Add top pieces to their own set.
+                    top_pieces.Add(p);                                      // Add top pieces to their own set.
                     p.SetTop(true);
-                    board_open[p.PlayerColor()][p.T(), p.R(), p.F()] = 1;     // Add piece to black or white board.
+                    board_open[p.PlayerColor()][p.T(), p.R(), p.F()] = 1;   // Add piece to black or white board.
                 }
                 else
                 {
@@ -183,12 +193,6 @@ namespace gungi_cs
                 }
 
                 UpdateMoves(p);
-
-                if (p.OnBoard())
-                {
-                    Print("MOVES", p.Moves());
-                    Print("ATTACKS", p.Attacks());
-                }
             }
 
             foreach (Piece p in hand_pieces)
@@ -199,14 +203,44 @@ namespace gungi_cs
 
         private void UpdateDrops(Piece _piece)
         {
-            int[,,] drops = board_open[P.EMPTY];
+            int[,,] drops = new int[P.TM, P.RM, P.FM];
+
+            if (setup_phase)
+            {
+                if (_piece.PlayerColor() == P.BLACK)
+                {
+                    for (int t = 0; t < P.TM; t++)
+                    {
+                        for (int r = P.RM - P.NUM_SETUP_RANKS; r < P.RM; r++)
+                        {
+                            for (int f = 0; f < P.FM; f++)
+                            {
+                                drops[t, r, f] = board_open[P.EMPTY][t, r, f];
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    for (int t = 0; t < P.TM; t++)
+                    {
+                        for (int r = 0; r < P.NUM_SETUP_RANKS; r++)
+                        {
+                            for (int f = 0; f < P.FM; f++)
+                            {
+                                drops[t, r, f] = board_open[P.EMPTY][t, r, f];
+                            }
+                        }
+                    }
+                }
+            }
 
             // Check NoDropMate pieces.
 
             _piece.SetDrops(drops);
         }
 
-        private void UpdateUpUpDiagSight(Piece _piece)
+        private void UpdateUpUpDiagSight(Piece _piece)//adjust for black/white pieces
         {
             int[,] line_of_sight = _piece.LineOfSight();
 
@@ -257,7 +291,7 @@ namespace gungi_cs
                             }
                             else
                             {
-                                moves[t, r, f] = _piece.Moveset()[_piece.T(), r, f];
+                                moves[t, r, f] = _piece.Moveset()[_piece.T(), r, f];//elevate
                                 attacks[t, r, f] = _piece.Moveset()[P.TM - 1, r, f];
                             }
                             moves[t, r, f] &= board_open[P.EMPTY][t, r, f] & (_piece.Teleports() ? 1 : _piece.LineOfSight()[r, f]);
@@ -369,8 +403,8 @@ namespace gungi_cs
 
         public void PrintBoard()
         {
-            String ret = "    0   1   2   3   4   5   6   7   8  \n";
-            for (int r = 0; r < P.RM; r++)
+            String ret = "    1   2   3   4   5   6   7   8   9  \n";
+            for (int r = P.RM - 1; r >= 0; r--)
             {
                 ret += "  ";
                 for (int f = 0; f < P.FM; f++)
@@ -398,6 +432,10 @@ namespace gungi_cs
                                 {
                                     ret += "!";
                                 }
+                                else
+                                {
+                                    ret += "-";
+                                }
                             }
                             else
                             {
@@ -411,7 +449,7 @@ namespace gungi_cs
                     }
                 }
                 ret += "·\n";
-                ret += r + " ";
+                ret += (r + 1) + " ";
                 for (int f = 0; f < P.FM; f++)
                 {
                     ret += "|";
@@ -424,6 +462,27 @@ namespace gungi_cs
             }
             ret += "  ·---·---·---·---·---·---·---·---·---·";
             Console.WriteLine(ret);
+        }
+
+        public int[] RandomDropLocation()
+        {
+            int loc_i = -1;
+        Repeat:
+            int valid_count = 0;
+            for (int t = 0; t < P.TM; t++)
+            {
+                for (int r = 0; r < P.RM; r++)
+                {
+                    for (int f = 0; f < P.FM; f++)
+                    {
+                        if (selected_piece.Drops()[t, r, f] == 1) valid_count++;
+                        if (valid_count == loc_i) return new int[] { t, r, f };
+                    }
+                }
+            }
+
+            loc_i = new Random().Next(0, valid_count) + 1;
+            goto Repeat;
         }
 
         public void Print(String _word, int[,,] _array)

@@ -72,19 +72,19 @@ namespace gungi_cs
             SetLocation(P.CAPTURED, P.CAPTURED, P.CAPTURED);
         }
 
-        public bool Drop(int _tier, int _rank, int _file)
+        public bool DropTo(int[] _location)
         {
-            if (in_hand)//and legal drop move
+            if (in_hand && drops[_location[P.T], _location[P.R], _location[P.F]] == 1)
             {
-                SetLocation(_tier, _rank, _file);
+                SetLocation(_location[P.T], _location[P.R], _location[P.F]);
                 return true;
             }
             return false;
         }
 
-        public bool BoardMove(int _tier, int _rank, int _file)
+        public bool MoveTo(int _tier, int _rank, int _file)
         {
-            if (on_board)//and legal move
+            if (on_board && moves[_tier, _rank, _file] == 1)
             {
                 SetLocation(_tier, _rank, _file);
                 return true;
@@ -105,6 +105,11 @@ namespace gungi_cs
         public int Sym()
         {
             return type * (player_color == P.BLACK ? -1 : 1);
+        }
+
+        public char Char()
+        {
+            return P.ConvertPiece(Sym());
         }
 
         public int[] Location()
@@ -156,19 +161,34 @@ namespace gungi_cs
         {
             if (!on_board) return;
 
-            int shift_r = P.OC_R - location[P.R];
-            int shift_f = P.OC_F - location[P.F];
+            int[,,] ext_moveset = new int[P.TM, P.RM_EXT, P.FM_EXT];
+
+            int shift_r = (P.RM_EXT - 1) / 2 - location[P.R];
+            int shift_f = (P.RM_EXT - 1) / 2 - location[P.F];
 
             for (int t = 0; t < P.TM; t++)
             {
+                
+                for (int r = 0; r < P.RM_EXT; r++)
+                {
+                    for (int f = 0; f < P.FM_EXT; f++)
+                    {
+                        int flipped_r = (player_color == P.BLACK) ? (P.RM_EXT - 1 - r) : r;
+                        ext_moveset[t, r, f] = Constants.GetMoves(type)[t, flipped_r, f];
+                    }
+                }
+
                 for (int r = 0; r < P.RM; r++)
                 {
                     for (int f = 0; f < P.FM; f++)
                     {
-                        moveset[t, r, f] = Constants.GetMoves(type)[t, r + shift_r, f + shift_f];
+                        moveset[t, r, f] = ext_moveset[t, r + shift_r, f + shift_f];
                     }
                 }
             }
+
+            Array array = new Array();
+            array.Print("", moveset);
         }
 
         public int[,,] Moveset()

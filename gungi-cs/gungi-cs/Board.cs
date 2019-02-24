@@ -15,9 +15,10 @@ namespace gungi_cs
         HashSet<Piece>[] board_pieces, hand_pieces, captured_pieces;
         bool[] any_drops, any_moves, any_attacks;
 
-        int turn_player_color, turn_number;
-        bool[] done_with_initial_phase;
-        bool[] just_passed;
+        int turn_player_color;
+        double turn_number;
+        bool[] just_passed, setup_done;
+        bool setup_phase;
 
         HashSet<int> options;
 
@@ -43,10 +44,11 @@ namespace gungi_cs
             all_pieces = new HashSet<Piece>();
 
             turn_player_color = P.BLACK;
-            turn_number = 1;
+            turn_number = 1.0;
 
-            done_with_initial_phase = new bool[2];
             just_passed = new bool[2];
+            setup_done = new bool[2];
+            setup_phase = true;
         }
 
         private void ClearBoard()
@@ -70,7 +72,11 @@ namespace gungi_cs
 
         private void Turn()
         {
-            Console.WriteLine("Turn #" + turn_number + ": " + P.ConvertColor(turn_player_color) + "'s turn.");
+            if (setup_phase && turn_number >= P.MAX_P + 1) EndSetup();
+            if (!setup_phase && turn_number == 1) turn_player_color = P.WHITE;
+
+            if (setup_phase) Console.WriteLine("Placement Turn #" + turn_number + ": " + P.ConvertColor(turn_player_color) + "'s turn.");
+            else Console.WriteLine("Turn #" + turn_number + ": " + P.ConvertColor(turn_player_color) + "'s turn.");
 
             TurnReset();
 
@@ -85,7 +91,7 @@ namespace gungi_cs
         private void SwapTurn()
         {
             turn_player_color = (turn_player_color == P.BLACK) ? P.WHITE : P.BLACK;
-            turn_number++;
+            turn_number += 0.5;
         }
 
         private void UpdateBoard()
@@ -135,10 +141,15 @@ namespace gungi_cs
             array.PrintBoard();
         }
 
-        private void PrintSelection(Piece _selected_piece)
+        private void SelectAndPrint(Piece _selected_piece)
         {
             array.Select(_selected_piece);
             PrintArray();
+        }
+
+        private void SelectOnly(Piece _selected_piece)
+        {
+            array.Select(_selected_piece);
         }
 
         private void Deselect()
@@ -146,22 +157,35 @@ namespace gungi_cs
             array.Deselect();
         }
 
+        private void RandomDropLocation(out int _t, out int _r, out int _f)
+        {
+            int[] location = array.RandomDropLocation();
+            _t = location[P.T];
+            _r = location[P.R];
+            _f = location[P.F];
+        }
+
+        private String LocString(int[] _location)
+        {
+            return (_location[P.R] + 1) + "-" + (_location[P.F] + 1) + "-" + (_location[P.T] + 1);
+        }
+
         private void GetOptions()
         {
             options.Add(P.SELECT);
 
-            if (!done_with_initial_phase[P.BLACK] || !done_with_initial_phase[P.WHITE])
+            if (setup_phase)
             {
-                if (board_pieces[turn_player_color].Count >= P.MAX_P)
-                {
-                    options.Add(P.DONE);
-                }
-                else if (board_pieces[turn_player_color].Count < P.MIN_P)
+                if (board_pieces[turn_player_color].Count < P.MAX_P)
                 {
                     options.Add(P.DROP);
+                    if (board_pieces[turn_player_color].Count >= P.MIN_P)
+                    {
+                        options.Add(P.PASS);
+                        options.Add(P.DONE);
+                    }
                 }
                 else {
-                    options.Add(P.PASS);
                     options.Add(P.DONE);
                 }
             }
@@ -184,6 +208,7 @@ namespace gungi_cs
 
         private void Choose()
         {
+            Deselect();
         WriteOptions:
             Console.WriteLine("Options:");
             for (int i = 0; i <= options.Max(); i++)
@@ -214,10 +239,11 @@ namespace gungi_cs
                 goto ReceiveOption;
             }
 
+            if (_choice != P.PASS) just_passed[turn_player_color] = false;
             switch (_choice)
             {
                 case P.SELECT:
-                    Select();
+                    SelectAny();
                     goto WriteOptions;
                 case P.DROP:
                     Drop();
@@ -242,29 +268,128 @@ namespace gungi_cs
             }
         }
 
-        private void Select()
+        private void SelectAny()
         {
             Piece selected_piece = null;
-            Console.WriteLine("Type the location of a piece [t-r-f] or type [-] to select a piece in hand.");
-            PrintArray();
+            Console.WriteLine("Type [b] to select a piece on the board, or type [h] to select a piece from your hand.");
 
         ReceiveOption:
+            int _choice = -1;
+
+            Console.Write("> ");
+            try
+            {
+                _choice = Console.ReadLine()[0];
+            }
+            catch
+            {
+                Console.WriteLine("Invalid input.");
+                goto ReceiveOption;
+            }
+
+            if (_choice == 'b')
+            {
+                if (all_board_pieces.Count > 0) goto FromBoard;
+
+                Console.WriteLine("No pieces on board.");
+                goto Complete;
+            }
+            else if (_choice == 'h')
+            {
+                if (hand_pieces[turn_player_color].Count > 0) goto FromHand;
+
+                Console.WriteLine("No pieces in hand.");
+                goto Complete;
+            }
+            else
+            {
+                Console.WriteLine("Invalid input.");
+                goto ReceiveOption;
+            }
+
+        FromBoard:
+            selected_piece = SelectFromBoard(true);
+            Console.WriteLine("Valid moves and attacks for this piece:");
+            SelectAndPrint(selected_piece);
+            goto Complete;
+
+        FromHand:
+            selected_piece = SelectFromHand();
+            Console.WriteLine("Valid drop locations for this piece:");
+            SelectAndPrint(selected_piece);
+            goto Complete;
+
+        Complete:
+            Console.WriteLine("Press a key to continue.\n");
+            Console.ReadKey(true);
+        }
+
+        private Piece SelectFromHand()
+        {
+            Piece selected_piece = null;
+            int _hand_choice = -1;
+
+            Console.WriteLine("Select a piece from your hand.");
+            foreach (Piece p in hand_pieces[turn_player_color])
+            {
+                Console.Write(p.Char() + " ");
+            }
+            Console.WriteLine();
+
+        ReceiveOption:
+            Console.Write("> ");
+            try
+            {
+                _hand_choice = Console.ReadLine()[0];
+            }
+            catch
+            {
+                Console.WriteLine("Invalid piece.");
+                goto ReceiveOption;
+            }
+
+            int rand = -1;
+            if (_hand_choice == 'x')
+            {
+                rand = new Random().Next(0, hand_pieces[turn_player_color].Count);
+            }
+
+            int i = 0;
+            foreach (Piece p in hand_pieces[turn_player_color])
+            {
+                if (p.Char() == _hand_choice || i == rand)
+                {
+                    selected_piece = p;
+                }
+                i++;
+            }
+            if (selected_piece == null)
+            {
+                Console.WriteLine("Invalid piece.");
+                goto ReceiveOption;
+            }
+
+            return selected_piece;
+        }
+
+        private Piece SelectFromBoard(bool _all_board)
+        {
+            Piece selected_piece = null;
             String _location_choice = " ";
             int _t = -1, _r = -1, _f = -1;
 
+            Console.WriteLine("Type the location of a piece [t-r-f].");
+            PrintArray();
+
+        ReceiveOption:
             Console.Write("> ");
             try
             {
                 _location_choice = Console.ReadLine();
 
-                if (_location_choice == "-")
-                {
-                    goto WriteHandOptions;
-                }
-
-                _t = Convert.ToInt32(_location_choice.Substring(0, 1));
-                _r = Convert.ToInt32(_location_choice.Substring(2, 1));
-                _f = Convert.ToInt32(_location_choice.Substring(4, 1));
+                _r = Convert.ToInt32(_location_choice.Substring(0, 1)) - 1;
+                _f = Convert.ToInt32(_location_choice.Substring(2, 1)) - 1;
+                _t = Convert.ToInt32(_location_choice.Substring(4, 1)) - 1;
             }
             catch
             {
@@ -272,90 +397,109 @@ namespace gungi_cs
                 goto ReceiveOption;
             }
 
-            foreach (Piece p in board_pieces[turn_player_color])
+            if (_all_board)
             {
-                if (p.T() == _t && p.R() == _r && p.F() == _f)
+                foreach (Piece p in all_board_pieces)
                 {
-                    selected_piece = p;
+                    if (p.T() == _t && p.R() == _r && p.F() == _f)
+                    {
+                        selected_piece = p;
+                    }
                 }
             }
+            else
+            {
+                foreach (Piece p in board_pieces[turn_player_color])
+                {
+                    if (p.T() == _t && p.R() == _r && p.F() == _f)
+                    {
+                        selected_piece = p;
+                    }
+                }
+            }
+            
             if (selected_piece == null)
             {
                 Console.WriteLine("Invalid location.");
                 goto ReceiveOption;
             }
-            else
-            {
-                goto Complete;
-            }
 
-        WriteHandOptions:
-            char _hand_choice = ' ';
-            Console.WriteLine("Select a piece in your hand.");
-            foreach (Piece p in hand_pieces[turn_player_color])
-            {
-                Console.Write(P.ConvertPiece(p.Sym()) + " ");
-            }
-            Console.WriteLine();
+            return selected_piece;
+        }
 
-        ReceiveHandOption:
+        private int[] SelectLocation()
+        {
+            String _choice = " ";
+            int _t = -1, _r = -1, _f = -1;
+
+            Console.WriteLine("Type a location [r-f-t].");
+
+        ReceiveOption:
             Console.Write("> ");
             try
             {
-                _hand_choice = (char)Console.Read();
+                _choice = Console.ReadLine();
+
+                _r = Convert.ToInt32(_choice.Substring(0, 1)) - 1;
+                _f = Convert.ToInt32(_choice.Substring(2, 1)) - 1;
+                _t = Convert.ToInt32(_choice.Substring(4, 1)) - 1;
             }
             catch
             {
-                Console.WriteLine("Invalid piece.");
+                if (_choice == "x")
+                {
+                    RandomDropLocation(out _t, out _r, out _f);
+                }
+                else
+                {
+                    Console.WriteLine("Invalid location.");
+                    goto ReceiveOption;
+                }
+            }
+
+            if (_t < 0 || _t >= P.TM || _r < 0 || _r >= P.RM || _f < 0 || _f >= P.FM)
+            {
+                Console.WriteLine("Invalid location.");
                 goto ReceiveOption;
             }
 
-            foreach (Piece p in hand_pieces[turn_player_color])
-            {
-                if (P.ConvertPiece(p.Sym()) == _hand_choice)
-                {
-                    selected_piece = p;
-                }
-            }
-            if (selected_piece == null)
-            {
-                Console.WriteLine("Invalid piece.");
-                goto ReceiveHandOption;
-            }
-            else
-            {
-                goto Complete;
-            }
-
-        Complete:
-            Console.WriteLine("Valid drop locations for this piece:");
-            PrintSelection(selected_piece);
-            Deselect();
-            Console.WriteLine("Press a key to continue turn.");
-            Console.ReadKey();
+            return new int[] { _t, _r, _f };
         }
 
         private void Drop()
         {
-            Console.Write("Select a piece to drop: ");
-            int _type = Convert.ToInt32(Console.ReadLine());
+            Piece selected_piece = null;
 
-            Console.WriteLine("Select a coordinate: ");
-            Console.Write("Tier: ");
-            int _tier = Convert.ToInt32(Console.ReadLine());
-            Console.Write("Rank: ");
-            int _rank = Convert.ToInt32(Console.ReadLine());
-            Console.Write("File: ");
-            int _file = Convert.ToInt32(Console.ReadLine());
-
-            foreach (Piece piece in all_hand_pieces)
+        Beginning:
+            if (board_pieces[turn_player_color].Count == 0)
             {
-                if (piece.Type() == _type && piece.PlayerColor() == turn_player_color)
+                foreach (Piece p in hand_pieces[turn_player_color])
                 {
-                    piece.Drop(_tier, _rank, _file);
-                    return;
+                    if (p.Type() == P.MAR)
+                    {
+                        selected_piece = p;
+                    }
                 }
+                Console.WriteLine("The marshal must be dropped first. Press a key to select the marshal.");
+                Console.ReadKey(true);
             }
+            else
+            {
+                selected_piece = SelectFromHand();
+            }
+            Console.WriteLine("Valid drop locations for [" + selected_piece.Char() + "]:");
+            SelectAndPrint(selected_piece);
+            SelectOnly(selected_piece);
+
+            int[] location = SelectLocation();
+            if (!selected_piece.DropTo(location))
+            {
+                Console.WriteLine("Invalid location: " + LocString(location) + ".");
+                goto Beginning;
+            }
+
+            Console.WriteLine("You dropped [" + selected_piece.Char() + "] onto " + LocString(location) + ". Press a key to end your turn.\n");
+            Console.ReadKey(true);
         }
 
         private void Move()
@@ -382,7 +526,7 @@ namespace gungi_cs
             {
                 if (piece.Location() == c_location)
                 {
-                    piece.BoardMove(_tier, _rank, _file);
+                    piece.MoveTo(_tier, _rank, _file);
                     return;
                 }
             }
@@ -395,12 +539,26 @@ namespace gungi_cs
 
         private void Pass()
         {
+            Console.WriteLine(P.ConvertColor(turn_player_color) + "'s turn was passed.");
+            just_passed[turn_player_color] = true;
 
+            if (just_passed[1 - turn_player_color]) EndSetup();
         }
 
         private void Done()
         {
-            done_with_initial_phase[turn_player_color] = true;
+            Console.WriteLine("Your placement is now complete.");
+            setup_done[turn_player_color] = true;
+
+            if (setup_done[1 - turn_player_color]) EndSetup();
+        }
+
+        private void EndSetup()
+        {
+            Console.WriteLine("Both placements are complete. The game may now begin.");
+            setup_phase = false;
+            array.SetupDone();
+            turn_number = 1;
         }
 
         private void Concede()
