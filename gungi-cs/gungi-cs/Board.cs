@@ -11,200 +11,328 @@ namespace gungi_cs
         Constants constants;
         Array array;
 
-        HashSet<Piece> pieces, board_pieces, hand_pieces, captured_pieces;
-        Piece selected_piece;
-        int[] num_pieces_on_board, num_pieces_in_hand;
+        HashSet<Piece> all_pieces, all_board_pieces, all_hand_pieces;
+        HashSet<Piece>[] board_pieces, hand_pieces, captured_pieces;
+        bool[] any_drops, any_moves, any_attacks;
 
-        int turn_player, turn_number;
-        bool[] done_initial_phase;
+        int turn_player_color, turn_number;
+        bool[] done_with_initial_phase;
+        bool[] just_passed;
 
-        bool[] options;
+        HashSet<int> options;
 
         public static void Main(String[] args)
         {
             Board board = new Board();
+
+            board.constants = new Constants();
+            board.array = new Array();
 
             board.Init();
 
             board.InitPieces(P.BLACK);
             board.InitPieces(P.WHITE);
 
-            board.ResetOptions();
+            board.ClearBoard();
 
-            board.UpdateBoard();
             while (true) board.Turn();
         }
 
         private void Init()
         {
-            constants = new Constants();
-            array = new Array();
+            all_pieces = new HashSet<Piece>();
 
-            pieces = new HashSet<Piece>();
-            selected_piece = null;
-            ClearBoard();
+            turn_player_color = P.BLACK;
+            turn_number = 1;
 
-            turn_player = P.BLACK;
-            turn_number = 0;
-            done_initial_phase = new bool[2];
-            options = new bool[5];
+            done_with_initial_phase = new bool[2];
+            just_passed = new bool[2];
         }
 
         private void ClearBoard()
         {
-            board_pieces = new HashSet<Piece>();
-            hand_pieces = new HashSet<Piece>();
-            captured_pieces = new HashSet<Piece>();
+            all_board_pieces = new HashSet<Piece>();
+            all_hand_pieces = new HashSet<Piece>();
 
-            num_pieces_on_board = new int[2];
-            num_pieces_in_hand = new int[] { P.MAX_P, P.MAX_P };
+            board_pieces = new HashSet<Piece>[] { new HashSet<Piece>(), new HashSet<Piece>() };
+            hand_pieces = new HashSet<Piece>[] { new HashSet<Piece>(), new HashSet<Piece>() };
+            captured_pieces = new HashSet<Piece>[] { new HashSet<Piece>(), new HashSet<Piece>() };
         }
 
-        private void ResetOptions()
+        private void TurnReset()
         {
-            for (int i = 0; i < options.Length; i++)
-            {
-                options[i] = false;
-            }
+            any_drops = new bool[2];
+            any_moves = new bool[2];
+            any_attacks = new bool[2];
+
+            options = new HashSet<int>();
         }
 
         private void Turn()
         {
-            turn_number++;
+            Console.WriteLine("Turn #" + turn_number + ": " + P.ConvertColor(turn_player_color) + "'s turn.");
 
-            Console.WriteLine("Turn: " + turn_number + ", " + turn_player + "'s move");
-
-            ResetOptions();
-            if (!done_initial_phase[P.BLACK] || !done_initial_phase[P.WHITE])
-            {
-                InitialTurn();
-            }
-            else
-            {
-                NextTurn();
-            }
-            Choose();
+            TurnReset();
 
             UpdateBoard();
+
+            GetOptions();
+            Choose();
 
             SwapTurn();
         }
 
         private void SwapTurn()
         {
-            turn_player = (turn_player == P.BLACK) ? P.WHITE : P.BLACK;
+            turn_player_color = (turn_player_color == P.BLACK) ? P.WHITE : P.BLACK;
+            turn_number++;
         }
 
         private void UpdateBoard()
         {
             ClearBoard();
 
-            foreach (Piece p in pieces)
+            foreach (Piece p in all_pieces)
             {
                 if (p.OnBoard())
                 {
-                    board_pieces.Add(p);
-                    num_pieces_on_board[p.Color()]++;
+                    all_board_pieces.Add(p);
+                    board_pieces[p.PlayerColor()].Add(p);
                 }
                 else if(p.InHand())
                 {
-                    hand_pieces.Add(p);
+                    all_hand_pieces.Add(p);
+                    hand_pieces[p.PlayerColor()].Add(p);
                 }
                 else
                 {
-                    captured_pieces.Add(p);
-                    num_pieces_in_hand[p.Color()]++;
+                    captured_pieces[p.PlayerColor()].Add(p);
                 }
             }
 
-            array.Update(turn_player, pieces, board_pieces);
+            UpdateArray();
+
+            int[,,] blank = new int[P.TM, P.RM, P.FM];
+
+            foreach (Piece p in all_hand_pieces)
+            {
+                if (hand_pieces[p.PlayerColor()].Count > 0 && p.Drops() != blank) any_drops[p.PlayerColor()] = true;
+            }
+            foreach (Piece p in all_board_pieces)
+            {
+                if (board_pieces[p.PlayerColor()].Count > 0 && p.Moves() != blank) any_moves[p.PlayerColor()] = true;
+                if (board_pieces[p.PlayerColor()].Count > 0 && board_pieces[1- p.PlayerColor()].Count > 0 && p.Attacks() != blank) any_attacks[p.PlayerColor()] = true;
+            }
         }
 
-        private void InitialTurn()
+        private void UpdateArray()
         {
-            if (done_initial_phase[turn_player]) return;
+            array.Update(all_board_pieces, all_hand_pieces);
+        }
 
-            if (num_pieces_on_board[turn_player] < P.MIN_P)
-            {
-                options[P.DROP] = true;
+        private void PrintArray()
+        {
+            array.PrintBoard();
+        }
 
-            }
-            else if (num_pieces_on_board[turn_player] >= P.MAX_P)
+        private void PrintSelection(Piece _selected_piece)
+        {
+            array.Select(_selected_piece);
+            PrintArray();
+        }
+
+        private void Deselect()
+        {
+            array.Deselect();
+        }
+
+        private void GetOptions()
+        {
+            options.Add(P.SELECT);
+
+            if (!done_with_initial_phase[P.BLACK] || !done_with_initial_phase[P.WHITE])
             {
-                done_initial_phase[turn_player] = true;
+                if (board_pieces[turn_player_color].Count >= P.MAX_P)
+                {
+                    options.Add(P.DONE);
+                }
+                else if (board_pieces[turn_player_color].Count < P.MIN_P)
+                {
+                    options.Add(P.DROP);
+                }
+                else {
+                    options.Add(P.PASS);
+                    options.Add(P.DONE);
+                }
             }
             else
             {
-                options[P.DROP] = true;
-                options[P.PASS] = true;
-                options[P.DONE] = true;
-            }
-        }
-
-        private void NextTurn()
-        {
-            if (num_pieces_in_hand[turn_player] > 0 && num_pieces_on_board[turn_player] < P.MAX_P)
-            {
-                options[P.DROP] = true;
-            }
-            if (num_pieces_on_board[turn_player] > 0)
-            {
-                options[P.MOVE] = true;
-                options[P.MOVE] = true;
+                if (any_drops[turn_player_color])
+                {
+                    options.Add(P.DROP);
+                }
+                if (any_moves[turn_player_color])
+                {
+                    options.Add(P.MOVE);
+                }
+                if (any_attacks[turn_player_color])
+                {
+                    options.Add(P.ATTACK);
+                }
             }
         }
 
         private void Choose()
         {
-            Console.Write("Options: ");
-            for (int i = 0; i < options.Length; i++)
+        WriteOptions:
+            Console.WriteLine("Options:");
+            for (int i = 0; i <= options.Max(); i++)
             {
-                if (options[i]) Console.Write(i + " | ");
+                if (options.Contains(i))
+                {
+                    Console.WriteLine(" [" + i + "] " + P.ConvertOption(i));
+                }
             }
-            Console.WriteLine();
 
-            Console.Write("Select a choice: ");
-            int _choice = Convert.ToInt32(Console.ReadLine());
-            while (_choice < 0 || _choice > options.Length - 1 || !options[_choice])
+        ReceiveOption:
+            int _choice = -1;
+
+            Console.Write("> ");
+            try
             {
                 _choice = Convert.ToInt32(Console.ReadLine());
             }
+            catch
+            {
+                Console.WriteLine("Invalid option.");
+                goto ReceiveOption;
+            }
 
-            if (_choice == 0)
+            if (!options.Contains(_choice))
             {
-                Console.WriteLine("Passed turn.");
-                Pass();
+                Console.WriteLine("Invalid option.");
+                goto ReceiveOption;
             }
-            else if (_choice == 1)
+
+            switch (_choice)
             {
-                Console.WriteLine("Done setting up.");
-                Done();
-            }
-            else if (_choice == 2)
-            {
-                Console.WriteLine("Drop selected.");
-                Drop();
-            }
-            else if (_choice == 3)
-            {
-                Console.WriteLine("Move selected.");
-                Move();
-            }
-            else if (_choice == 4)
-            {
-                Console.WriteLine("Attack selected.");
-                Attack();
+                case P.SELECT:
+                    Select();
+                    goto WriteOptions;
+                case P.DROP:
+                    Drop();
+                    break;
+                case P.MOVE:
+                    Move();
+                    break;
+                case P.ATTACK:
+                    Attack();
+                    break;
+                case P.PASS:
+                    Pass();
+                    break;
+                case P.DONE:
+                    Done();
+                    break;
+                case P.CONCEDE:
+                    Concede();
+                    break;
+                default:
+                    break;
             }
         }
 
-        private void Pass()
+        private void Select()
         {
+            Piece selected_piece = null;
+            Console.WriteLine("Type the location of a piece [t-r-f] or type [-] to select a piece in hand.");
+            PrintArray();
 
-        }
+        ReceiveOption:
+            String _location_choice = " ";
+            int _t = -1, _r = -1, _f = -1;
 
-        private void Done()
-        {
-            done_initial_phase[turn_player] = true;
+            Console.Write("> ");
+            try
+            {
+                _location_choice = Console.ReadLine();
+
+                if (_location_choice == "-")
+                {
+                    goto WriteHandOptions;
+                }
+
+                _t = Convert.ToInt32(_location_choice.Substring(0, 1));
+                _r = Convert.ToInt32(_location_choice.Substring(2, 1));
+                _f = Convert.ToInt32(_location_choice.Substring(4, 1));
+            }
+            catch
+            {
+                Console.WriteLine("Invalid location.");
+                goto ReceiveOption;
+            }
+
+            foreach (Piece p in board_pieces[turn_player_color])
+            {
+                if (p.T() == _t && p.R() == _r && p.F() == _f)
+                {
+                    selected_piece = p;
+                }
+            }
+            if (selected_piece == null)
+            {
+                Console.WriteLine("Invalid location.");
+                goto ReceiveOption;
+            }
+            else
+            {
+                goto Complete;
+            }
+
+        WriteHandOptions:
+            char _hand_choice = ' ';
+            Console.WriteLine("Select a piece in your hand.");
+            foreach (Piece p in hand_pieces[turn_player_color])
+            {
+                Console.Write(P.ConvertPiece(p.Sym()) + " ");
+            }
+            Console.WriteLine();
+
+        ReceiveHandOption:
+            Console.Write("> ");
+            try
+            {
+                _hand_choice = (char)Console.Read();
+            }
+            catch
+            {
+                Console.WriteLine("Invalid piece.");
+                goto ReceiveOption;
+            }
+
+            foreach (Piece p in hand_pieces[turn_player_color])
+            {
+                if (P.ConvertPiece(p.Sym()) == _hand_choice)
+                {
+                    selected_piece = p;
+                }
+            }
+            if (selected_piece == null)
+            {
+                Console.WriteLine("Invalid piece.");
+                goto ReceiveHandOption;
+            }
+            else
+            {
+                goto Complete;
+            }
+
+        Complete:
+            Console.WriteLine("Valid drop locations for this piece:");
+            PrintSelection(selected_piece);
+            Deselect();
+            Console.WriteLine("Press a key to continue turn.");
+            Console.ReadKey();
         }
 
         private void Drop()
@@ -220,9 +348,9 @@ namespace gungi_cs
             Console.Write("File: ");
             int _file = Convert.ToInt32(Console.ReadLine());
 
-            foreach (Piece piece in hand_pieces)
+            foreach (Piece piece in all_hand_pieces)
             {
-                if (piece.Type() == _type && piece.Color() == turn_player)
+                if (piece.Type() == _type && piece.PlayerColor() == turn_player_color)
                 {
                     piece.Drop(_tier, _rank, _file);
                     return;
@@ -250,7 +378,7 @@ namespace gungi_cs
 
             int[] c_location = new int[] { _c_tier, _c_rank, _c_file };
 
-            foreach (Piece piece in board_pieces)
+            foreach (Piece piece in all_board_pieces)
             {
                 if (piece.Location() == c_location)
                 {
@@ -265,46 +393,61 @@ namespace gungi_cs
             Console.WriteLine("Unimplemented.");
         }
 
+        private void Pass()
+        {
+
+        }
+
+        private void Done()
+        {
+            done_with_initial_phase[turn_player_color] = true;
+        }
+
+        private void Concede()
+        {
+            Console.WriteLine("Unimplemented.");
+        }
+
         private void InitPieces(int _player_color)
         {
-            pieces.Add(new Piece(_player_color, P.MAR));
-            pieces.Add(new Piece(_player_color, P.SPY));
-            pieces.Add(new Piece(_player_color, P.SPY));
-            pieces.Add(new Piece(_player_color, P.LIE));
-            pieces.Add(new Piece(_player_color, P.LIE));
-            pieces.Add(new Piece(_player_color, P.MAJ));
-            pieces.Add(new Piece(_player_color, P.MAJ));
-            pieces.Add(new Piece(_player_color, P.MAJ));
-            pieces.Add(new Piece(_player_color, P.MAJ));
-            pieces.Add(new Piece(_player_color, P.GEN));
-            pieces.Add(new Piece(_player_color, P.GEN));
-            pieces.Add(new Piece(_player_color, P.GEN));
-            pieces.Add(new Piece(_player_color, P.GEN));
-            pieces.Add(new Piece(_player_color, P.GEN));
-            pieces.Add(new Piece(_player_color, P.GEN));
-            pieces.Add(new Piece(_player_color, P.ARC));
-            pieces.Add(new Piece(_player_color, P.ARC));
-            pieces.Add(new Piece(_player_color, P.KNI));
-            pieces.Add(new Piece(_player_color, P.KNI));
-            pieces.Add(new Piece(_player_color, P.SAM));
-            pieces.Add(new Piece(_player_color, P.SAM));
-            pieces.Add(new Piece(_player_color, P.CAN));
-            pieces.Add(new Piece(_player_color, P.CAN));
-            pieces.Add(new Piece(_player_color, P.COU));
-            pieces.Add(new Piece(_player_color, P.COU));
-            pieces.Add(new Piece(_player_color, P.FOR));
-            pieces.Add(new Piece(_player_color, P.FOR));
-            pieces.Add(new Piece(_player_color, P.MUS));
-            pieces.Add(new Piece(_player_color, P.MUS));
-            pieces.Add(new Piece(_player_color, P.PAW));
-            pieces.Add(new Piece(_player_color, P.PAW));
-            pieces.Add(new Piece(_player_color, P.PAW));
-            pieces.Add(new Piece(_player_color, P.PAW));
-            pieces.Add(new Piece(_player_color, P.PAW));
-            pieces.Add(new Piece(_player_color, P.PAW));
-            pieces.Add(new Piece(_player_color, P.PAW));
-            pieces.Add(new Piece(_player_color, P.PAW));
-            pieces.Add(new Piece(_player_color, P.PAW));
+            all_pieces.Add(new Piece(_player_color, P.MAR));
+            all_pieces.Add(new Piece(_player_color, P.SPY));
+            all_pieces.Add(new Piece(_player_color, P.SPY));
+            all_pieces.Add(new Piece(_player_color, P.LIE));
+            all_pieces.Add(new Piece(_player_color, P.LIE));
+            all_pieces.Add(new Piece(_player_color, P.MAJ));
+            all_pieces.Add(new Piece(_player_color, P.MAJ));
+            all_pieces.Add(new Piece(_player_color, P.MAJ));
+            all_pieces.Add(new Piece(_player_color, P.MAJ));
+            all_pieces.Add(new Piece(_player_color, P.GEN));
+            all_pieces.Add(new Piece(_player_color, P.GEN));
+            all_pieces.Add(new Piece(_player_color, P.GEN));
+            all_pieces.Add(new Piece(_player_color, P.GEN));
+            all_pieces.Add(new Piece(_player_color, P.GEN));
+            all_pieces.Add(new Piece(_player_color, P.GEN));
+            all_pieces.Add(new Piece(_player_color, P.ARC));
+            all_pieces.Add(new Piece(_player_color, P.ARC));
+            all_pieces.Add(new Piece(_player_color, P.KNI));
+            all_pieces.Add(new Piece(_player_color, P.KNI));
+            all_pieces.Add(new Piece(_player_color, P.SAM));
+            all_pieces.Add(new Piece(_player_color, P.SAM));
+            all_pieces.Add(new Piece(_player_color, P.CAN));
+            all_pieces.Add(new Piece(_player_color, P.CAN));
+            all_pieces.Add(new Piece(_player_color, P.COU));
+            all_pieces.Add(new Piece(_player_color, P.COU));
+            all_pieces.Add(new Piece(_player_color, P.FOR));
+            all_pieces.Add(new Piece(_player_color, P.FOR));
+            all_pieces.Add(new Piece(_player_color, P.MUS));
+            all_pieces.Add(new Piece(_player_color, P.MUS));
+            all_pieces.Add(new Piece(_player_color, P.PAW));
+            all_pieces.Add(new Piece(_player_color, P.PAW));
+            all_pieces.Add(new Piece(_player_color, P.PAW));
+            all_pieces.Add(new Piece(_player_color, P.PAW));
+            all_pieces.Add(new Piece(_player_color, P.PAW));
+            all_pieces.Add(new Piece(_player_color, P.PAW));
+            all_pieces.Add(new Piece(_player_color, P.PAW));
+            all_pieces.Add(new Piece(_player_color, P.PAW));
+            all_pieces.Add(new Piece(_player_color, P.PAW));
         }
     }
 }

@@ -21,11 +21,13 @@ namespace gungi_cs
             WHITE = 1,
             EMPTY = 2,
 
-            PASS = 0,
-            DONE = 1,
-            DROP = 2,
-            MOVE = 3,
-            ATTACK = 4,
+            SELECT = 0,
+            DROP = 1,
+            MOVE = 2,
+            ATTACK = 3,
+            PASS = 4,
+            DONE = 5,
+            CONCEDE = 6,
 
             EMP = 0,
             MAR = 1,
@@ -43,6 +45,7 @@ namespace gungi_cs
             PAW = 13,
 
             HAND = 99,
+            CAPTURED = -1,
 
             OC_R = 8,
             OC_F = 8,
@@ -78,6 +81,95 @@ namespace gungi_cs
                 }
             }
             return open;
+        }
+
+        public static String ConvertColor(int _color)
+        {
+            switch (_color)
+            {
+                case P.BLACK:
+                    return "BLACK";
+                case P.WHITE:
+                    return "WHITE";
+                default:
+                    return "BAD COLOR";
+            }
+        }
+
+        public static String ConvertOption(int _option)
+        {
+            switch (_option)
+            {
+                case P.SELECT:
+                    return "Select Piece";
+                case P.DROP:
+                    return "Drop Piece";
+                case P.MOVE:
+                    return "Move";
+                case P.ATTACK:
+                    return "Attack";
+                case P.PASS:
+                    return "Pass Turn";
+                case P.DONE:
+                    return "Done Setting Up";
+                default:
+                    return "BAD OPTION";
+            }
+        }
+
+        public static char ConvertPiece(int _piece_num)
+        {
+            int b = (_piece_num < 0 ? 32 : 0);
+            int c;
+            switch (Math.Abs(_piece_num))
+            {
+                case P.MAR:
+                    c = b + 'M';
+                    break;
+                case P.SPY:
+                    c = b + 'Y';
+                    break;
+                case P.LIE:
+                    c = b + 'L';
+                    break;
+                case P.MAJ:
+                    c = b + 'J';
+                    break;
+                case P.GEN:
+                    c = b + 'G';
+                    break;
+                case P.ARC:
+                    c = b + 'A';
+                    break;
+                case P.KNI:
+                    c = b + 'K';
+                    break;
+                case P.SAM:
+                    c = b + 'S';
+                    break;
+                case P.CAN:
+                    c = b + 'C';
+                    break;
+                case P.COU:
+                    c = b + 'U';
+                    break;
+                case P.FOR:
+                    c = b + 'F';
+                    break;
+                case P.MUS:
+                    c = b + 'R';
+                    break;
+                case P.PAW:
+                    c = b + 'P';
+                    break;
+                case P.EMP:
+                    c = ' ';
+                    break;
+                default:
+                    c = '#';
+                    break;
+            }
+            return (char)c;
         }
     }
 
