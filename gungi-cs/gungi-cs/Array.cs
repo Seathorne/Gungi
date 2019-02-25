@@ -60,7 +60,7 @@ namespace gungi_cs
 
             _piece.SetTop(false);
             _piece.SetLeadingPieceInSight(false);
-            _piece.SetElevatedTier(_piece.T());
+            _piece.SetElevatingTier(_piece.T());
 
             _piece.SetLineOfSight(blank_los);
             _piece.SetAttackLineOfSight(blank_los);
@@ -79,7 +79,7 @@ namespace gungi_cs
             UpdateBoardStates();
             UpdatePieces();
 
-            PrintBoard();
+            PrintBoard(P.EMPTY);
         }
 
         public void Select(Piece _piece)
@@ -107,22 +107,6 @@ namespace gungi_cs
                 if (p.IsUnstackable())                                      // Add special pieces to their own sets.
                 {
                     unstackable_pieces.Add(p);
-                }
-                if (p.Leads())
-                {
-                    leading_pieces.Add(p);
-                }
-                if (p.Elevates())
-                {
-                    elevating_pieces.Add(p);
-                }
-                if (p.JumpAttacks())
-                {
-                    jumping_pieces.Add(p);
-                }
-                if (p.Teleports())
-                {
-                    teleporting_pieces.Add(p);
                 }
                 if (p.NoDropMate())
                 {
@@ -168,11 +152,28 @@ namespace gungi_cs
 
             foreach (Piece p in board_pieces)
             {
-                if (p.Sym() == board_top[p.R(), p.F()])
+                if (p.Sym() == board_top[p.R(), p.F()] && p.T() == StackHeight(p.R(), p.F()) - 1)
                 {
                     top_pieces.Add(p);                                      // Add top pieces to their own set.
                     p.SetTop(true);
                     board_open[p.PlayerColor()][p.T(), p.R(), p.F()] = 1;   // Add piece to black or white board.
+
+                    if (p.Leads())
+                    {
+                        leading_pieces.Add(p);
+                    }
+                    if (p.Elevates())
+                    {
+                        elevating_pieces.Add(p);
+                    }
+                    if (p.JumpAttacks())
+                    {
+                        jumping_pieces.Add(p);
+                    }
+                    if (p.Teleports())
+                    {
+                        teleporting_pieces.Add(p);
+                    }
                 }
                 else
                 {
@@ -187,12 +188,21 @@ namespace gungi_cs
             {
                 UpdateLineOfSight(p);
                 UpdateInLeadingSight(p);
-                if (leading_pieces.Contains(p) && !p.JumpAttacks())
+                if (p.Type() == P.LIE)
                 {
-                    UpdateUpUpDiagSight(p);
+                    UpdateExtraDiagSight(p);
                 }
 
-                UpdateMoves(p);
+                foreach (Piece e_p in elevating_pieces)
+                {
+                    UpdateMoves(e_p);
+                }
+
+                if (!elevating_pieces.Contains(p))
+                {
+                    UpdateElevation(p);
+                    UpdateMoves(p);
+                }
             }
 
             foreach (Piece p in hand_pieces)
@@ -201,34 +211,41 @@ namespace gungi_cs
             }
         }
 
+        private void UpdateElevation(Piece _piece)
+        {
+            int e_tier = 0;
+
+            foreach (Piece e_p in elevating_pieces)
+            {
+                if (e_p.Moveset()[_piece.T(), _piece.R(), _piece.F()] == 1)
+                {
+                    e_tier = Math.Min(P.TM - 1, Math.Max(e_tier, e_p.T() + 1));
+                }
+            }
+
+            _piece.SetElevatingTier(e_tier);
+        }
+
         private void UpdateDrops(Piece _piece)
         {
             int[,,] drops = new int[P.TM, P.RM, P.FM];
 
-            if (setup_phase)
+            for (int t = 0; t < P.TM; t++)
             {
-                if (_piece.PlayerColor() == P.BLACK)
+                for (int r = 0; r < P.RM; r++)
                 {
-                    for (int t = 0; t < P.TM; t++)
+                    for (int f = 0; f < P.FM; f++)
                     {
-                        for (int r = P.RM - P.NUM_SETUP_RANKS; r < P.RM; r++)
+                        drops[t, r, f] = board_open[P.EMPTY][t, r, f];
+                        if (setup_phase)
                         {
-                            for (int f = 0; f < P.FM; f++)
+                            if (_piece.PlayerColor() == P.BLACK && r < P.RM - P.NUM_SETUP_RANKS)
                             {
-                                drops[t, r, f] = board_open[P.EMPTY][t, r, f];
+                                drops[t, r, f] = 0;
                             }
-                        }
-                    }
-                }
-                else
-                {
-                    for (int t = 0; t < P.TM; t++)
-                    {
-                        for (int r = 0; r < P.NUM_SETUP_RANKS; r++)
-                        {
-                            for (int f = 0; f < P.FM; f++)
+                            else if (_piece.PlayerColor() == P.WHITE && r >= P.NUM_SETUP_RANKS)
                             {
-                                drops[t, r, f] = board_open[P.EMPTY][t, r, f];
+                                drops[t, r, f] = 0;
                             }
                         }
                     }
@@ -240,26 +257,29 @@ namespace gungi_cs
             _piece.SetDrops(drops);
         }
 
-        private void UpdateUpUpDiagSight(Piece _piece)//adjust for black/white pieces
+        private void UpdateExtraDiagSight(Piece _piece)
         {
             int[,] line_of_sight = _piece.LineOfSight();
 
-            int up_sight = SightLength(P.UP, _piece.R(), _piece.F(), out int x1, out int x2);
-            if (up_sight >= 2)
+            int sign = (_piece.PlayerColor() == P.BLACK) ? -1 : 1;
+            int forward_dir = (_piece.PlayerColor() == P.BLACK) ? P.UP : P.DOWN;
+
+            int forward_sight = SightLength(forward_dir, _piece.R(), _piece.F(), out int x1, out int x2);
+            if (forward_sight >= 2)
             {
-                bool up_open = (StackHeight(_piece.R() - 1, _piece.F()) == 0);
-                if (up_open)
+                bool forward_open = (StackHeight(_piece.R() + sign, _piece.F()) == 0);
+                if (forward_open)
                 {
                     int left_sight = SightLength(P.LEFT, _piece.R(), _piece.F(), out int x3, out int x4);
                     if (left_sight >= 1)
                     {
-                        line_of_sight[_piece.R() - 2, _piece.F() - 1] = 1;
+                        line_of_sight[_piece.R() + 2 * sign, _piece.F() - 1] = 1;
                     }
 
                     int right_sight = SightLength(P.RIGHT, _piece.R(), _piece.F(), out int x5, out int x6);
                     if (right_sight >= 1)
                     {
-                        line_of_sight[_piece.R() - 2, _piece.F() + 1] = 1;
+                        line_of_sight[_piece.R() + 2 * sign, _piece.F() + 1] = 1;
                     }
 
                     _piece.SetLineOfSight(line_of_sight);
@@ -291,7 +311,7 @@ namespace gungi_cs
                             }
                             else
                             {
-                                moves[t, r, f] = _piece.Moveset()[_piece.T(), r, f];//elevate
+                                moves[t, r, f] = _piece.Moveset()[_piece.ElevatedTier(), r, f];
                                 attacks[t, r, f] = _piece.Moveset()[P.TM - 1, r, f];
                             }
                             moves[t, r, f] &= board_open[P.EMPTY][t, r, f] & (_piece.Teleports() ? 1 : _piece.LineOfSight()[r, f]);
@@ -401,8 +421,20 @@ namespace gungi_cs
             return (_piece == P.EMP);
         }
 
-        public void PrintBoard()
+        public void PrintBoard(int _modifier)
         {
+            HashSet<String> locations = new HashSet<String>();
+            if (_modifier == P.WHITE || _modifier == P.BLACK)
+            {
+                foreach (Piece p in top_pieces)
+                {
+                    if (p.PlayerColor() == _modifier)
+                    {
+                        locations.Add(p.T() + "" + p.R() + "" + p.F());
+                    }
+                }
+            }
+
             String ret = "    1   2   3   4   5   6   7   8   9  \n";
             for (int r = P.RM - 1; r >= 0; r--)
             {
@@ -416,30 +448,59 @@ namespace gungi_cs
                         {
                             if (selected_piece.IsInLocation(t, r, f))
                             {
-                                ret += "@";
+                                ret += "%";
                             }
                             else if (selected_piece.InHand() && selected_piece.Drops()[t, r, f] == 1)
                             {
-                                ret += "v";
+                                ret += "o";
                             }
                             else if (selected_piece.OnBoard())
                             {
-                                if (selected_piece.Moves()[t, r, f] == 1)
+                                if (_modifier == P.WOULD_BE)
                                 {
-                                    ret += "o";
-                                }
-                                else if (selected_piece.Attacks()[t, r, f] == 1)
-                                {
-                                    ret += "!";
+                                    if (selected_piece.WouldBeMoves()[t, r, f] == 1)
+                                    {
+                                        ret += "o";
+                                    }
+                                    else if (selected_piece.WouldBeAttacks()[t, r, f] == 1)
+                                    {
+                                        ret += "#";
+                                    }
+                                    else
+                                    {
+                                        ret += "-";
+                                    }
                                 }
                                 else
                                 {
-                                    ret += "-";
+                                    if (selected_piece.Moves()[t, r, f] == 1)
+                                    {
+                                        ret += "o";
+                                    }
+                                    else if (selected_piece.Attacks()[t, r, f] == 1)
+                                    {
+                                        ret += "#";
+                                    }
+                                    else
+                                    {
+                                        ret += "-";
+                                    }
                                 }
                             }
                             else
                             {
                                 ret += "-";
+                            }
+                        }
+                        else if (_modifier == P.WHITE || _modifier == P.BLACK)
+                        {
+                            if (locations.Contains(t + "" + r + "" + f))
+                            {
+                                ret += "%";
+                            }
+                            else
+                            {
+                                ret += '-';
                             }
                         }
                         else
@@ -490,7 +551,7 @@ namespace gungi_cs
             String ret = _word + "\n";
             for (int t = 0; t < _array.GetLength(0); t++)
             {
-                for (int r = 0; r < _array.GetLength(1); r++)
+                for (int r = _array.GetLength(1) - 1; r >= 0; r--)
                 {
                     for (int f = 0; f < _array.GetLength(2); f++)
                     {
@@ -575,7 +636,7 @@ namespace gungi_cs
                     return height;
                 }
             }
-            return 0;
+            return height;
         }
         
     }

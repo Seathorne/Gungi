@@ -9,25 +9,35 @@ namespace gungi_cs
     public class P
     {
         public const int
-            T = 0,
-            R = 1,
-            F = 2,
+            Ti = 0,
+            Ri = 1,
+            Fi = 2,
 
             TM = 3,
             RM = 9,
             FM = 9,
+            RM_EXT = 17,
+            FM_EXT = 17,
 
             BLACK = 0,
             WHITE = 1,
             EMPTY = 2,
+            WOULD_BE = 3,
+
+            MIN_P = 18,
+            MAX_P = 26,
+            TOTAL_P = 38,
+            NUM_SETUP_RANKS = 3,
+
+            HAND = 99,
+            CAPTURED = -1,
 
             SELECT = 0,
             DROP = 1,
-            MOVE = 2,
-            ATTACK = 3,
-            PASS = 4,
-            DONE = 5,
-            CONCEDE = 6,
+            MOVE_OR_ATTACK = 2,
+            PASS = 3,
+            DONE = 4,
+            CONCEDE = 5,
 
             EMP = 0,
             MAR = 1,
@@ -44,14 +54,6 @@ namespace gungi_cs
             MUS = 12,
             PAW = 13,
 
-            HAND = 99,
-            CAPTURED = -1,
-
-            RM_EXT = 17,
-            FM_EXT = 17,
-
-            NUM_SETUP_RANKS = 3,
-
             NUM_DIR = 9,
             UP_LEFT = 0,
             UP = 1,
@@ -61,29 +63,8 @@ namespace gungi_cs
             RIGHT = 5,
             DOWN_LEFT = 6,
             DOWN = 7,
-            DOWN_RIGHT = 8,
-
-            UP_UP_LEFT = 9,
-            UP_UP_RIGHT = 10,
-
-            MIN_P = 18,
-            MAX_P = 26,
-            TOTAL_P = 38,
-            START_R = 3
+            DOWN_RIGHT = 8
         ;
-
-        public static int[,,] OpenBoard(int _tier, int _rank, int _file)
-        {
-            int[,,] open = new int[_tier, _rank, _file];
-            for (int r = 0; r < _rank; r++)
-            {
-                for (int f = 0; f < _file; f++)
-                {
-                    open[0, r, f] = 1;
-                }
-            }
-            return open;
-        }
 
         public static String ConvertColor(int _color)
         {
@@ -106,10 +87,8 @@ namespace gungi_cs
                     return "Select Piece";
                 case P.DROP:
                     return "Drop Piece";
-                case P.MOVE:
-                    return "Move";
-                case P.ATTACK:
-                    return "Attack";
+                case P.MOVE_OR_ATTACK:
+                    return "Move/Attack";
                 case P.PASS:
                     return "Pass Turn";
                 case P.DONE:
@@ -168,7 +147,7 @@ namespace gungi_cs
                     c = ' ';
                     break;
                 default:
-                    c = '#';
+                    c = '/';
                     break;
             }
             return (char)c;

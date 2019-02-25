@@ -8,7 +8,7 @@ namespace gungi_cs
 {
     class Piece
     {
-        private int player_color, type, elevated_tier;
+        private int player_color, type, elevating_tier;
         private int[] location;
         private int[,,] moveset, moves, attacks, drops;
         private int[,] line_of_sight, attack_line_of_sight;
@@ -19,7 +19,7 @@ namespace gungi_cs
             player_color = _player_color;
             type = _piece_number;
 
-            elevated_tier = 0;
+            elevating_tier = 0;
 
             location = new int[3];
             moveset = new int[P.TM, P.RM, P.FM];
@@ -30,15 +30,16 @@ namespace gungi_cs
             line_of_sight = new int[P.RM, P.FM];
             attack_line_of_sight = new int[P.RM, P.FM];
             in_leading_sight = false;
+            top = false;
 
             PlaceInHand();
         }
 
         private void SetLocation(int _tier, int _rank, int _file)
         {
-            location[P.T] = _tier;
-            location[P.R] = _rank;
-            location[P.F] = _file;
+            location[P.Ti] = _tier;
+            location[P.Ri] = _rank;
+            location[P.Fi] = _file;
 
             if (_tier >= 0 && _tier < P.TM && _rank >= 0 && _rank < P.RM && _file >= 0 && _file < P.FM)
             {
@@ -51,7 +52,6 @@ namespace gungi_cs
         {
             in_hand = true;
             on_board = false;
-            top = false;
 
             SetLocation(P.HAND, P.HAND, P.HAND);
         }
@@ -60,36 +60,34 @@ namespace gungi_cs
         {
             in_hand = false;
             on_board = true;
-            top = true;
         }
 
-        public void PlaceInCaptured()
+        public void GetsAttacked()
         {
             in_hand = false;
             on_board = false;
-            top = false;
 
             SetLocation(P.CAPTURED, P.CAPTURED, P.CAPTURED);
         }
 
-        public bool DropTo(int[] _location)
+        public bool CanDropTo(int[] _location)
         {
-            if (in_hand && drops[_location[P.T], _location[P.R], _location[P.F]] == 1)
-            {
-                SetLocation(_location[P.T], _location[P.R], _location[P.F]);
-                return true;
-            }
-            return false;
+            return (in_hand && drops[_location[P.Ti], _location[P.Ri], _location[P.Fi]] == 1);
         }
 
-        public bool MoveTo(int _tier, int _rank, int _file)
+        public bool CanMoveTo(int[] _location)
         {
-            if (on_board && moves[_tier, _rank, _file] == 1)
-            {
-                SetLocation(_tier, _rank, _file);
-                return true;
-            }
-            return false;
+            return (on_board && top && moves[_location[P.Ti], _location[P.Ri], _location[P.Fi]] == 1);
+        }
+
+        public bool CanAttackTo(int[] _location)
+        {
+            return (on_board && top && attacks[_location[P.Ti], _location[P.Ri], _location[P.Fi]] == 1);
+        }
+
+        public void MoveTo(int[] _location)
+        {
+            SetLocation(_location[P.Ti], _location[P.Ri], _location[P.Fi]);
         }
 
         public int PlayerColor()
@@ -119,7 +117,7 @@ namespace gungi_cs
 
         public bool IsInLocation(int _t, int _r, int _f)
         {
-            return (location[P.T] == _t && location[P.R] == _r && location[P.F] == _f);
+            return (location[P.Ti] == _t && location[P.Ri] == _r && location[P.Fi] == _f);
         }
 
         public void SetLeadingPieceInSight(bool _in_sight)
@@ -132,29 +130,29 @@ namespace gungi_cs
             return in_leading_sight;
         }
 
-        public void SetElevatedTier(int _elevated_tier)
+        public void SetElevatingTier(int _elevating_tier)
         {
-            elevated_tier = _elevated_tier;
+            elevating_tier = _elevating_tier;
         }
 
         public int ElevatedTier()
         {
-            return elevated_tier;
+            return Math.Max(elevating_tier, T());
         }
 
         public int T()
         {
-            return location[P.T];
+            return location[P.Ti];
         }
 
         public int R()
         {
-            return location[P.R];
+            return location[P.Ri];
         }
 
         public int F()
         {
-            return location[P.F];
+            return location[P.Fi];
         }
 
         private void SetMoveset()
@@ -163,8 +161,8 @@ namespace gungi_cs
 
             int[,,] ext_moveset = new int[P.TM, P.RM_EXT, P.FM_EXT];
 
-            int shift_r = (P.RM_EXT - 1) / 2 - location[P.R];
-            int shift_f = (P.RM_EXT - 1) / 2 - location[P.F];
+            int shift_r = (P.RM_EXT - 1) / 2 - location[P.Ri];
+            int shift_f = (P.RM_EXT - 1) / 2 - location[P.Fi];
 
             for (int t = 0; t < P.TM; t++)
             {
@@ -173,7 +171,7 @@ namespace gungi_cs
                 {
                     for (int f = 0; f < P.FM_EXT; f++)
                     {
-                        int flipped_r = (player_color == P.BLACK) ? (P.RM_EXT - 1 - r) : r;
+                        int flipped_r = (player_color == P.WHITE) ? (P.RM_EXT - 1 - r) : r;
                         ext_moveset[t, r, f] = Constants.GetMoves(type)[t, flipped_r, f];
                     }
                 }
@@ -186,9 +184,6 @@ namespace gungi_cs
                     }
                 }
             }
-
-            Array array = new Array();
-            array.Print("", moveset);
         }
 
         public int[,,] Moveset()
@@ -227,6 +222,12 @@ namespace gungi_cs
 
         public int[,,] Moves()
         {
+            if (top) return moves;
+            else return new int[P.TM, P.RM, P.FM];
+        }
+
+        public int[,,] WouldBeMoves()
+        {
             return moves;
         }
 
@@ -236,6 +237,12 @@ namespace gungi_cs
         }
 
         public int[,,] Attacks()
+        {
+            if (top) return attacks;
+            else return new int[P.TM, P.RM, P.FM];
+        }
+
+        public int[,,] WouldBeAttacks()
         {
             return attacks;
         }
