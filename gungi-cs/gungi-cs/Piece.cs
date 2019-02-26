@@ -48,7 +48,7 @@ namespace gungi_cs
             }
         }
 
-        private void PlaceInHand()
+        public void PlaceInHand()
         {
             in_hand = true;
             on_board = false;
@@ -108,6 +108,11 @@ namespace gungi_cs
         public int[] Location()
         {
             return location;
+        }
+
+        public String LocationStringRFT()
+        {
+            return (R() + 1) + "-" + (F() + 1) + "-" + (T() + 1);
         }
 
         public bool IsInLocation(int _t, int _r, int _f)

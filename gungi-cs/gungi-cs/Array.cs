@@ -23,9 +23,15 @@ namespace gungi_cs
             marshal_pieces, leading_pieces, elevating_pieces, jumping_pieces, teleporting_pieces, hand_pawn_pieces;
         Piece selected_piece;
 
+        // Check
+        bool[] in_check;
+        bool[] in_checkmate;
+        int[] check_count;
+
         public Array()
         {
             setup_phase = true;
+            selected_piece = null;
 
             Clear();
         }
@@ -50,7 +56,30 @@ namespace gungi_cs
             teleporting_pieces = new HashSet<Piece>();
             hand_pawn_pieces = new HashSet<Piece>();
 
-            selected_piece = null;
+            in_check = new bool[2];
+            in_checkmate = new bool[2];
+            check_count = new int[2];
+        }
+
+        public void DuringCheckMateClear()
+        {
+            board = new int[P.TM, P.RM, P.FM];
+            board_top = new int[P.RM, P.FM];
+            board_open = new int[][,,] { new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM] };
+            board_in_check = new int[][,,] { new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM] };
+
+            lt_gen_sight = new int[P.RM, P.FM];
+            fort_range = new int[P.RM, P.FM];
+
+            board_pieces = new HashSet<Piece>();
+            hand_pieces = new HashSet<Piece>();
+            top_pieces = new HashSet<Piece>();
+            marshal_pieces = new HashSet<Piece>();
+            leading_pieces = new HashSet<Piece>();
+            elevating_pieces = new HashSet<Piece>();
+            jumping_pieces = new HashSet<Piece>();
+            teleporting_pieces = new HashSet<Piece>();
+            hand_pawn_pieces = new HashSet<Piece>();
         }
 
         public void ClearPiece(Piece _piece)
@@ -72,19 +101,34 @@ namespace gungi_cs
         public void Update(HashSet<Piece> _board_pieces, HashSet<Piece> _hand_pieces)
         {
             Clear();
+            selected_piece = null;
 
             board_pieces = _board_pieces;
             hand_pieces = _hand_pieces;
 
             UpdateBoardStates();
             UpdatePieces();
+            UpdatePiecesDrops();
 
-            CheckCheck();
-
-            PrintBoard(P.EMPTY);
+            if (!setup_phase)
+            {
+                UpdateCheck();
+                UpdateCheckMate();
+            }
         }
 
-        public void FakeUpdate(HashSet<Piece> _board_pieces, HashSet<Piece> _hand_pieces)
+        public void DuringCheckMateUpdate(HashSet<Piece> _board_pieces, HashSet<Piece> _hand_pieces)
+        {
+            DuringCheckMateClear();
+
+            board_pieces = _board_pieces;
+            hand_pieces = _hand_pieces;
+
+            UpdateBoardStates();
+            UpdatePieces();
+        }
+
+        private void FakeUpdate(HashSet<Piece> _board_pieces, HashSet<Piece> _hand_pieces)
         {
             Clear();
 
@@ -94,53 +138,57 @@ namespace gungi_cs
             UpdateBoardStates();
             UpdatePieces();
 
-            CheckCheck();
+            UpdateCheck();
         }
 
-        private int CheckCheck()
+        private void UpdateCheck()
         {
-            bool black_in_check = false, white_in_check = false;
+            in_check = new bool[2];
+            check_count = new int[2];
 
             foreach (Piece p in marshal_pieces)
             {
-                int _check_count = InCheck(p);
-                if (_check_count == 1)
-                {
-                    Console.WriteLine(P.ConvertColor(p.PlayerColor()) + " is in check by 1 enemy piece.");
-                }
-                else if (_check_count > 1)
-                {
-                    Console.WriteLine(P.ConvertColor(p.PlayerColor()) + " is in check by " + _check_count + " enemy pieces.");
-                }
+                check_count[p.PlayerColor()] = CheckCount(p);
+                in_check[p.PlayerColor()] = (check_count[p.PlayerColor()] > 0);
+            }
+        }
 
-                if (_check_count > 0)
-                {
-                    black_in_check |= (p.PlayerColor() == P.BLACK);
-                    white_in_check |= (p.PlayerColor() == P.WHITE);
-                }
-            }
+        private void UpdateCheckMate()
+        {
+            in_checkmate = new bool[2];
 
-            if (black_in_check && white_in_check)
+            if (in_check[P.BLACK])
             {
-                return P.BOTH_PLAYERS;
+                CheckCheckmate(P.BLACK);
             }
-            else if (black_in_check)
+            if (in_check[P.WHITE])
             {
-                return P.BLACK;
+                CheckCheckmate(P.WHITE);
             }
-            else if (white_in_check)
-            {
-                return P.WHITE;
-            }
-            else
-            {
-                return P.EMPTY;
-            }
+        }
+
+        public int CheckCount(int _player_color)
+        {
+            return check_count[_player_color];
+        }
+
+        public bool IsInCheck(int _player_color)
+        {
+            return in_check[_player_color];
+        }
+
+        public bool IsInCheckMate(int _player_color)
+        {
+            return in_checkmate[_player_color];
         }
 
         public void Select(Piece _piece)
         {
             selected_piece = _piece;
+            if (!setup_phase && hand_pawn_pieces.Contains(selected_piece))
+            {
+                UpdatePawnDrops(_piece);
+            }
         }
 
         public void Deselect()
@@ -242,22 +290,169 @@ namespace gungi_cs
             }
         }
 
-        private int InCheck(Piece p)
+        private int CheckCount(Piece p)
         {
             return (board_in_check[p.PlayerColor()][p.T(), p.R(), p.F()]);
         }
-
-        public void FakeMove(Piece p, int[] _location)
+        
+        private void CheckCheckmate(int _checked_player_color)
         {
-            int _t = _location[P.Ti];
-            int _r = _location[P.Ri];
-            int _f = _location[P.Fi];
+            in_checkmate[_checked_player_color] = true;
+
+            foreach (Piece p in board_pieces)
+            {
+                if (p.PlayerColor() == _checked_player_color)
+                {
+                    for (int t = 0; t < P.TM; t++)
+                    {
+                        for (int r = 0; r < P.RM; r++)
+                        {
+                            for (int f = 0; f < P.FM; f++)
+                            {
+                                if (p.CanMoveTo(new int[] { t, r, f }))
+                                {
+                                    if (!IsInCheckAfterFakeMove(p, new int[] { t, r, f }))
+                                    {
+                                        //Console.WriteLine(P.ConvertColor(_checked_player_color) + " may escape check by moving [" + p.Char() + "] from " + p.LocationStringRFT() + " to " + (r + 1) + "-" + (f + 1) + "-" + (t + 1) + ".");
+                                        in_checkmate[_checked_player_color] = false;
+                                        return;
+                                    }
+                                }
+                                else if (p.CanAttackTo(new int[] { t, r, f }))
+                                {
+                                    if (!IsInCheckAfterFakeAttack(p, new int[] { t, r, f }))
+                                    {
+                                        //Console.WriteLine(P.ConvertColor(_checked_player_color) + " may escape check by attacking [" + p.Char() + "] from " + p.LocationStringRFT() + " to " + (r + 1) + "-" + (f + 1) + "-" + (t + 1) + ".");
+                                        in_checkmate[_checked_player_color] = false;
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Piece hand_piece = null;
+            foreach (Piece p in hand_pieces)
+            {
+                if (p.PlayerColor() == _checked_player_color)
+                {
+                    hand_piece = p;
+                    break;
+                }
+            }
+            if (hand_piece != null)
+            {
+                if (hand_piece.PlayerColor() == _checked_player_color)
+                {
+                    for (int t = 0; t < P.TM; t++)
+                    {
+                        for (int r = 0; r < P.RM; r++)
+                        {
+                            for (int f = 0; f < P.FM; f++)
+                            {
+                                if (hand_piece.CanDropTo(new int[] { t, r, f }))
+                                {
+                                    if (!IsInCheckAfterFakeDrop(_checked_player_color, hand_piece, new int[] { t, r, f }))
+                                    {
+                                        //Console.WriteLine(P.ConvertColor(hand_piece.PlayerColor()) + " may escape check by dropping a piece onto " + (r + 1) + "-" + (f + 1) + "-" + (t + 1) + ".");
+                                        in_checkmate[_checked_player_color] = false;
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private bool IsInCheckAfterFakeMove(Piece _p, int[] _fake_location)
+        {
+            int _t = _fake_location[P.Ti];
+            int _r = _fake_location[P.Ri];
+            int _f = _fake_location[P.Fi];
+
+            int[] real_location = new int[] { _p.T(), _p.R(), _p.F() };
+
+            _p.MoveTo(_fake_location);
 
             Array fake_array = new Array();
             fake_array.FakeUpdate(board_pieces, hand_pieces);
+            bool fake_check = fake_array.in_check[_p.PlayerColor()];
+            fake_array = null;
 
-            int current_check = fake_array.CheckCheck();
-            Console.WriteLine("After fake move, check situation = " + current_check);
+            _p.MoveTo(real_location);
+            DuringCheckMateUpdate(board_pieces, hand_pieces);
+
+            return (fake_check);
+        }
+
+        private bool IsInCheckAfterFakeAttack(Piece _p, int[] _fake_location)
+        {
+            int _t = _fake_location[P.Ti];
+            int _r = _fake_location[P.Ri];
+            int _f = _fake_location[P.Fi];
+
+            int[] real_location = new int[] { _p.T(), _p.R(), _p.F() };
+            Piece attacked_piece = null;
+            HashSet<Piece> fake_board_pieces = new HashSet<Piece>();
+
+            foreach (Piece p in board_pieces)
+            {
+                if (p.T() == _t && p.R() == _r && p.F() == _f)
+                {
+                    attacked_piece = p;
+                }
+                else
+                {
+                    fake_board_pieces.Add(p);
+                }
+            }
+
+            attacked_piece.GetsAttacked();
+            _p.MoveTo(_fake_location);
+
+            Array fake_array = new Array();
+            fake_array.FakeUpdate(fake_board_pieces, hand_pieces);
+            bool fake_check = fake_array.in_check[_p.PlayerColor()];
+            fake_array = null;
+
+            _p.MoveTo(real_location);
+            attacked_piece.MoveTo(_fake_location);
+            DuringCheckMateUpdate(board_pieces, hand_pieces);
+
+            return (fake_check);
+        }
+
+        private bool IsInCheckAfterFakeDrop(int _player_color_to_check, Piece _drop_piece, int[] _fake_location)
+        {
+            int _t = _fake_location[P.Ti];
+            int _r = _fake_location[P.Ri];
+            int _f = _fake_location[P.Fi];
+
+            HashSet<Piece> fake_board_pieces = new HashSet<Piece>();
+            HashSet<Piece> fake_hand_pieces = new HashSet<Piece>();
+
+            _drop_piece.MoveTo(_fake_location);
+            foreach (Piece p in board_pieces)
+            {
+                fake_board_pieces.Add(p);
+            }
+            fake_board_pieces.Add(_drop_piece);
+            fake_hand_pieces.Remove(_drop_piece);
+
+            Array fake_array = new Array();
+            fake_array.FakeUpdate(fake_board_pieces, fake_hand_pieces);
+            bool fake_check = fake_array.in_check[_player_color_to_check];
+            fake_array = null;
+
+            _drop_piece.PlaceInHand();
+            DuringCheckMateUpdate(board_pieces, hand_pieces);
+            UpdateDrops(_drop_piece);
+
+            return (fake_check);
         }
 
         private void UpdatePieces()
@@ -284,7 +479,10 @@ namespace gungi_cs
 
                 UpdateCheckedPieces(p);
             }
+        }
 
+        private void UpdatePiecesDrops()
+        {
             foreach (Piece p in hand_pieces)
             {
                 UpdateDrops(p);
@@ -324,11 +522,6 @@ namespace gungi_cs
         {
             int[,,] drops = new int[P.TM, P.RM, P.FM];
 
-            foreach (Piece p in hand_pawn_pieces)
-            {
-                // Check NoDropMate pieces.
-            }
-
             for (int t = 0; t < P.TM; t++)
             {
                 for (int r = 0; r < P.RM; r++)
@@ -345,6 +538,43 @@ namespace gungi_cs
                             else if (_piece.PlayerColor() == P.WHITE && r >= P.NUM_SETUP_RANKS)
                             {
                                 drops[t, r, f] = 0;
+                            }
+                        }
+                    }
+                }
+            }
+
+            _piece.SetDrops(drops);
+        }
+
+        private void UpdatePawnDrops(Piece _piece)
+        {
+            int[,,] drops = _piece.Drops();
+
+            Piece enemy_marshal = null;
+            foreach (Piece p in marshal_pieces)
+            {
+                if (p.PlayerColor() == (1 - _piece.PlayerColor()))
+                {
+                    enemy_marshal = p;
+                }
+            }
+
+            for (int t = 0; t < P.TM; t++)
+            {
+                for (int r = 0; r < P.RM; r++)
+                {
+                    for (int f = 0; f < P.FM; f++)
+                    {
+                        drops[t, r, f] = _piece.Drops()[t, r, f];
+                        if (r >= Math.Max(0, enemy_marshal.R() - 1) && r <= Math.Min(P.RM - 1, enemy_marshal.R() + 1) && f >= Math.Max(0, enemy_marshal.F() - 1) && f <= Math.Min(P.FM - 1, enemy_marshal.F() + 1))
+                        {
+                            if (drops[t, r, f] == 1)
+                            {
+                                if (IsInCheckAfterFakeDrop(enemy_marshal.PlayerColor(), _piece, new int[] { t, r, f }))
+                                {
+                                    drops[t, r, f] = 0;
+                                }
                             }
                         }
                     }
@@ -529,7 +759,7 @@ namespace gungi_cs
                 {
                     if (p.PlayerColor() == _modifier)
                     {
-                        locations.Add(p.T() + "" + p.R() + "" + p.F());
+                        locations.Add(p.LocationStringRFT());
                     }
                 }
             }
@@ -593,7 +823,7 @@ namespace gungi_cs
                         }
                         else if (_modifier == P.WHITE || _modifier == P.BLACK)
                         {
-                            if (locations.Contains(t + "" + r + "" + f))
+                            if (locations.Contains((r + 1) + "-" + (f + 1) + "-" + (t + 1)))
                             {
                                 ret += "%";
                             }

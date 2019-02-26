@@ -39,6 +39,7 @@ namespace gungi_cs
             PASS = 3,
             DONE = 4,
             CONCEDE = 5,
+            TEST = 6,
 
             EMP = 0,
             MAR = 1,
@@ -75,6 +76,10 @@ namespace gungi_cs
                     return "BLACK";
                 case P.WHITE:
                     return "WHITE";
+                case P.EMPTY:
+                    return "NEITHER";
+                case P.BOTH_PLAYERS:
+                    return "BOTH";
                 default:
                     return "BAD COLOR";
             }

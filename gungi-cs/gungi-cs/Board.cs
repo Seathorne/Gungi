@@ -18,7 +18,7 @@ namespace gungi_cs
         int turn_player_color;
         double turn_number;
         bool[] just_passed, setup_done;
-        bool setup_phase, just_selected;
+        bool setup_phase, just_selected, game_over;
 
         HashSet<int> options;
 
@@ -36,7 +36,7 @@ namespace gungi_cs
 
             board.ClearBoard();
 
-            while (true) board.Turn();
+            while (!board.game_over) board.Turn();
         }
 
         private void Init()
@@ -50,6 +50,7 @@ namespace gungi_cs
             setup_done = new bool[2];
             setup_phase = true;
             just_selected = false;
+            game_over = false;
         }
 
         private void ClearBoard()
@@ -79,6 +80,9 @@ namespace gungi_cs
             TurnReset();
 
             UpdateBoard();
+            UpdateCheck();
+            if (game_over) return;
+            PrintArray(P.EMPTY);
 
             GetOptions();
             Choose();
@@ -159,6 +163,30 @@ namespace gungi_cs
             {
                 if (board_pieces[p.PlayerColor()].Count > 0 && p.Moves() != blank) any_moves[p.PlayerColor()] = true;
                 if (board_pieces[p.PlayerColor()].Count > 0 && board_pieces[1- p.PlayerColor()].Count > 0 && p.Attacks() != blank) any_attacks[p.PlayerColor()] = true;
+            }
+        }
+
+        private void UpdateCheck()
+        {
+            if (!setup_phase && array.IsInCheck(turn_player_color))
+            {
+                Console.WriteLine(P.ConvertColor(turn_player_color) + "'s marshal is put in check by " + array.CheckCount(1 - turn_player_color) + " enemy pieces.");
+                if (array.IsInCheckMate(turn_player_color))
+                {
+                    Console.WriteLine(P.ConvertColor(turn_player_color) + " has been checkmated.\n");
+                    Console.WriteLine(P.ConvertColor(1 - turn_player_color) + " wins the game!");
+                    game_over = true;
+                }
+            }
+            if (!setup_phase && array.IsInCheck(1 - turn_player_color))
+            {
+                Console.WriteLine(P.ConvertColor(1 - turn_player_color) + "'s marshal is put in check by " + array.CheckCount(turn_player_color) + " enemy pieces.");//TODO fix starting in check but not their turn
+                if (array.IsInCheckMate(1 - turn_player_color))
+                {
+                    Console.WriteLine(P.ConvertColor(1 - turn_player_color) + " has been checkmated.\n");
+                    Console.WriteLine(P.ConvertColor(turn_player_color) + " wins the game!");
+                    game_over = true;
+                }
             }
         }
 
@@ -272,7 +300,7 @@ namespace gungi_cs
                     SelectAny();
                     just_selected = true;
                     Turn();
-                    return;
+                    break;
                 case P.DROP:
                     Drop();
                     break;
@@ -527,7 +555,7 @@ namespace gungi_cs
             }
 
             selected_piece.MoveTo(location);
-            Console.WriteLine("You dropped [" + selected_piece.Char() + "] onto " + LocString(location) + ". Press a key to end your turn.\n");
+            Console.WriteLine("You dropped [" + selected_piece.Char() + "] onto " + selected_piece.LocationStringRFT() + ". Press a key to end your turn.\n");
             Console.ReadKey(true);
         }
 
@@ -541,14 +569,14 @@ namespace gungi_cs
             Console.WriteLine("Valid moves and attacks for [" + selected_piece.Char() + "]:");
             SelectAndPrint(selected_piece, P.EMPTY);
 
-            String orig_location = LocString(selected_piece.Location());
+            String orig_location = selected_piece.LocationStringRFT();
             int[] location = SelectLocation();
             Piece attacked_piece = null;
 
             if (selected_piece.CanMoveTo(location))
             {
                 selected_piece.MoveTo(location);
-                Console.WriteLine("You moved [" + selected_piece.Char() + "] from " + orig_location + " to " + LocString(location) + ". Press a key to end your turn.\n");
+                Console.WriteLine("You moved [" + selected_piece.Char() + "] from " + orig_location + " to " + selected_piece.LocationStringRFT() + ". Press a key to end your turn.\n");
                 Console.ReadKey(true);
             }
             else if (selected_piece.CanAttackTo(location))
@@ -568,7 +596,7 @@ namespace gungi_cs
                     goto Beginning;
                 }
                 selected_piece.MoveTo(location);
-                Console.WriteLine("You moved [" + selected_piece.Char() + "] from " + orig_location + " to " + LocString(location) + ", capturing an enemy [" + attacked_piece.Char() + "]. Press a key to end your turn.\n");
+                Console.WriteLine("You moved [" + selected_piece.Char() + "] from " + orig_location + " to " + selected_piece.LocationStringRFT() + ", capturing an enemy [" + attacked_piece.Char() + "]. Press a key to end your turn.\n");
                 Console.ReadKey(true);
             }
             else
