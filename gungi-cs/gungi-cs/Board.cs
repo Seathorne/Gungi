@@ -18,7 +18,7 @@ namespace gungi_cs
         int turn_player_color;
         double turn_number;
         bool[] just_passed, setup_done;
-        bool setup_phase;
+        bool setup_phase, just_selected;
 
         HashSet<int> options;
 
@@ -49,6 +49,7 @@ namespace gungi_cs
             just_passed = new bool[2];
             setup_done = new bool[2];
             setup_phase = true;
+            just_selected = false;
         }
 
         private void ClearBoard()
@@ -87,6 +88,12 @@ namespace gungi_cs
 
         private void SwapTurn()
         {
+            if (just_selected)
+            {
+                just_selected = false;
+                return;
+            }
+
             if (setup_phase && turn_number > P.MAX_P)
             {
                 EndSetup();
@@ -263,6 +270,7 @@ namespace gungi_cs
             {
                 case P.SELECT:
                     SelectAny();
+                    just_selected = true;
                     Turn();
                     return;
                 case P.DROP:

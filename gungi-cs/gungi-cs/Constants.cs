@@ -22,7 +22,8 @@ namespace gungi_cs
             BLACK = 0,
             WHITE = 1,
             EMPTY = 2,
-            WOULD_BE = 3,
+            BOTH_PLAYERS = 3,
+            WOULD_BE = 4,
 
             MIN_P = 18,
             MAX_P = 26,
@@ -100,8 +101,9 @@ namespace gungi_cs
 
         public static char ConvertPiece(int _piece_num)
         {
-            int b = (_piece_num < 0 ? 32 : 0);
-            int c;
+            int b, c;
+            b = (_piece_num < 0) ? 32 : 0;
+
             switch (Math.Abs(_piece_num))
             {
                 case P.MAR:

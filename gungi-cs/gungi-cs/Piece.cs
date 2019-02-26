@@ -105,11 +105,6 @@ namespace gungi_cs
             return type * (player_color == P.BLACK ? -1 : 1);
         }
 
-        public char Char()
-        {
-            return P.ConvertPiece(Sym());
-        }
-
         public int[] Location()
         {
             return location;
@@ -282,11 +277,6 @@ namespace gungi_cs
             return in_hand || on_board;
         }
 
-        public bool IsUnstackable()
-        {
-            return (type == P.MAR);
-        }
-
         public bool Leads()
         {
             return (type == P.LIE);
@@ -307,20 +297,9 @@ namespace gungi_cs
             return (type == P.ARC || type == P.KNI);
         }
 
-        public bool QuickStarts()
+        public char Char()
         {
-            return false;// (type == P.PAW);
-        }
-
-        public bool NoDropMate()
-        {
-            return (type == P.PAW);
-        }
-
-        override
-        public String ToString()
-        {
-            return Sym() + "";
+            return P.ConvertPiece(Sym());
         }
     }
 }

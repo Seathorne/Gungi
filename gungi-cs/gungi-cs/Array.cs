@@ -11,16 +11,16 @@ namespace gungi_cs
     {
         // Board State
         bool setup_phase;
-        int[,,] board, board_threatened;
+        int[,,] board;
         int[,] board_top;
-        int[][,,] board_open;
+        int[][,,] board_open, board_in_check;
 
         // Modifiers
         int[,] lt_gen_sight, fort_range;
 
         // Valid Moves
         HashSet<Piece> board_pieces, hand_pieces, top_pieces,
-            unstackable_pieces, leading_pieces, elevating_pieces, jumping_pieces, teleporting_pieces, no_dropmate_pieces;
+            marshal_pieces, leading_pieces, elevating_pieces, jumping_pieces, teleporting_pieces, hand_pawn_pieces;
         Piece selected_piece;
 
         public Array()
@@ -33,9 +33,9 @@ namespace gungi_cs
         public void Clear()
         {
             board = new int[P.TM, P.RM, P.FM];
-            board_threatened = new int[P.TM, P.RM, P.FM];
             board_top = new int[P.RM, P.FM];
             board_open = new int[][,,] { new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM] };
+            board_in_check = new int[][,,] { new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM], new int[P.TM, P.RM, P.FM] };
 
             lt_gen_sight = new int[P.RM, P.FM];
             fort_range = new int[P.RM, P.FM];
@@ -43,12 +43,12 @@ namespace gungi_cs
             board_pieces = new HashSet<Piece>();
             hand_pieces = new HashSet<Piece>();
             top_pieces = new HashSet<Piece>();
-            unstackable_pieces = new HashSet<Piece>();
+            marshal_pieces = new HashSet<Piece>();
             leading_pieces = new HashSet<Piece>();
             elevating_pieces = new HashSet<Piece>();
             jumping_pieces = new HashSet<Piece>();
             teleporting_pieces = new HashSet<Piece>();
-            no_dropmate_pieces = new HashSet<Piece>();
+            hand_pawn_pieces = new HashSet<Piece>();
 
             selected_piece = null;
         }
@@ -79,7 +79,63 @@ namespace gungi_cs
             UpdateBoardStates();
             UpdatePieces();
 
+            CheckCheck();
+
             PrintBoard(P.EMPTY);
+        }
+
+        public void FakeUpdate(HashSet<Piece> _board_pieces, HashSet<Piece> _hand_pieces)
+        {
+            Clear();
+
+            board_pieces = _board_pieces;
+            hand_pieces = _hand_pieces;
+
+            UpdateBoardStates();
+            UpdatePieces();
+
+            CheckCheck();
+        }
+
+        private int CheckCheck()
+        {
+            bool black_in_check = false, white_in_check = false;
+
+            foreach (Piece p in marshal_pieces)
+            {
+                int _check_count = InCheck(p);
+                if (_check_count == 1)
+                {
+                    Console.WriteLine(P.ConvertColor(p.PlayerColor()) + " is in check by 1 enemy piece.");
+                }
+                else if (_check_count > 1)
+                {
+                    Console.WriteLine(P.ConvertColor(p.PlayerColor()) + " is in check by " + _check_count + " enemy pieces.");
+                }
+
+                if (_check_count > 0)
+                {
+                    black_in_check |= (p.PlayerColor() == P.BLACK);
+                    white_in_check |= (p.PlayerColor() == P.WHITE);
+                }
+            }
+
+            if (black_in_check && white_in_check)
+            {
+                return P.BOTH_PLAYERS;
+            }
+            else if (black_in_check)
+            {
+                return P.BLACK;
+            }
+            else if (white_in_check)
+            {
+                return P.WHITE;
+            }
+            else
+            {
+                return P.EMPTY;
+            }
         }
 
         public void Select(Piece _piece)
@@ -104,13 +160,17 @@ namespace gungi_cs
                 ClearPiece(p);
                 board[p.T(), p.R(), p.F()] = p.Sym();                       // Construct the board array.
 
-                if (p.IsUnstackable())                                      // Add special pieces to their own sets.
+                if (p.Type() == P.MAR)                                      // Add special pieces to their own sets.
                 {
-                    unstackable_pieces.Add(p);
+                    marshal_pieces.Add(p);
                 }
-                if (p.NoDropMate())
+            }
+
+            foreach (Piece p in hand_pieces)
+            {
+                if (p.Type() == P.PAW)
                 {
-                    no_dropmate_pieces.Add(p);
+                    hand_pawn_pieces.Add(p);
                 }
             }
 
@@ -119,7 +179,7 @@ namespace gungi_cs
                 for (int f = 0; f < P.RM; f++)
                 {
                     bool unstackable = false;
-                    foreach (Piece p in unstackable_pieces)
+                    foreach (Piece p in marshal_pieces)
                     {
                         unstackable = (r == p.R() && f == p.F());
                         if (unstackable)
@@ -182,6 +242,24 @@ namespace gungi_cs
             }
         }
 
+        private int InCheck(Piece p)
+        {
+            return (board_in_check[p.PlayerColor()][p.T(), p.R(), p.F()]);
+        }
+
+        public void FakeMove(Piece p, int[] _location)
+        {
+            int _t = _location[P.Ti];
+            int _r = _location[P.Ri];
+            int _f = _location[P.Fi];
+
+            Array fake_array = new Array();
+            fake_array.FakeUpdate(board_pieces, hand_pieces);
+
+            int current_check = fake_array.CheckCheck();
+            Console.WriteLine("After fake move, check situation = " + current_check);
+        }
+
         private void UpdatePieces()
         {
             foreach (Piece p in board_pieces)
@@ -203,11 +281,27 @@ namespace gungi_cs
                     UpdateElevation(p);
                     UpdateMoves(p);
                 }
+
+                UpdateCheckedPieces(p);
             }
 
             foreach (Piece p in hand_pieces)
             {
                 UpdateDrops(p);
+            }
+        }
+
+        private void UpdateCheckedPieces(Piece _p)
+        {
+            for (int t = 0; t < P.TM; t++)
+            {
+                for (int r = 0; r < P.RM; r++)
+                {
+                    for (int f = 0; f < P.FM; f++)
+                    {
+                        board_in_check[1 - _p.PlayerColor()][t, r, f] += _p.Attacks()[t, r, f];
+                    }
+                }
             }
         }
 
@@ -230,6 +324,11 @@ namespace gungi_cs
         {
             int[,,] drops = new int[P.TM, P.RM, P.FM];
 
+            foreach (Piece p in hand_pawn_pieces)
+            {
+                // Check NoDropMate pieces.
+            }
+
             for (int t = 0; t < P.TM; t++)
             {
                 for (int r = 0; r < P.RM; r++)
@@ -251,8 +350,6 @@ namespace gungi_cs
                     }
                 }
             }
-
-            // Check NoDropMate pieces.
 
             _piece.SetDrops(drops);
         }
@@ -306,14 +403,16 @@ namespace gungi_cs
                                 for (int m_t = 0; m_t < P.TM; m_t++)
                                 {
                                     moves[t, r, f] |= _piece.Moveset()[m_t, r, f];
-                                    attacks[t, r, f] |= _piece.Moveset()[P.TM - 1, r, f];
+                                    attacks[t, r, f] |= _piece.Moveset()[m_t, r, f];
                                 }
                             }
                             else
                             {
                                 moves[t, r, f] = _piece.Moveset()[_piece.ElevatedTier(), r, f];
-                                attacks[t, r, f] = _piece.Moveset()[P.TM - 1, r, f];
+                                if (_piece.JumpAttacks()) attacks[t, r, f] |= _piece.Moveset()[P.TM - 1, r, f];
+                                else attacks[t, r, f] = _piece.Moveset()[_piece.ElevatedTier(), r, f];
                             }
+
                             moves[t, r, f] &= board_open[P.EMPTY][t, r, f] & (_piece.Teleports() ? 1 : _piece.LineOfSight()[r, f]);
                             attacks[t, r, f] &= board_open[1 - _piece.PlayerColor()][t, r, f] & (_piece.Teleports() ? 1 : _piece.AttackLineOfSight()[r, f]);
                         }
