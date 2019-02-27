@@ -168,24 +168,26 @@ namespace gungi_cs
 
         private void UpdateCheck()
         {
-            if (!setup_phase && array.IsInCheck(turn_player_color))
-            {
-                Console.WriteLine(P.ConvertColor(turn_player_color) + "'s marshal is put in check by " + array.CheckCount(1 - turn_player_color) + " enemy pieces.");
-                if (array.IsInCheckMate(turn_player_color))
-                {
-                    Console.WriteLine(P.ConvertColor(turn_player_color) + " has been checkmated.\n");
-                    Console.WriteLine(P.ConvertColor(1 - turn_player_color) + " wins the game!");
-                    game_over = true;
-                }
-            }
             if (!setup_phase && array.IsInCheck(1 - turn_player_color))
             {
-                Console.WriteLine(P.ConvertColor(1 - turn_player_color) + "'s marshal is put in check by " + array.CheckCount(turn_player_color) + " enemy pieces.");//TODO fix starting in check but not their turn
-                if (array.IsInCheckMate(1 - turn_player_color))
+                Console.WriteLine(P.ConvertColor(1 - turn_player_color) + "'s marshal is put in CHECK by " + array.CheckCount(1 - turn_player_color) + " enemy pieces.");
+                Console.WriteLine("Since it is " + P.ConvertColor(turn_player_color) + "'s turn, " + P.ConvertColor(1 - turn_player_color) + " cannot escape check.");
+                Console.WriteLine(P.ConvertColor(turn_player_color) + " WINS the game!");
+                game_over = true;
+                return;
+            }
+            if (!setup_phase && array.IsInCheck(turn_player_color))
+            {
+                Console.WriteLine(P.ConvertColor(turn_player_color) + "'s marshal is put in CHECK by " + array.CheckCount(turn_player_color) + " enemy pieces.");
+                if (array.IsInCheckMate(turn_player_color))
                 {
-                    Console.WriteLine(P.ConvertColor(1 - turn_player_color) + " has been checkmated.\n");
-                    Console.WriteLine(P.ConvertColor(turn_player_color) + " wins the game!");
+                    Console.WriteLine(P.ConvertColor(turn_player_color) + " has been CHECKMATED.\n");
+                    Console.WriteLine(P.ConvertColor(1 - turn_player_color) + " WINS the game!");
                     game_over = true;
+                }
+                else
+                {
+                    Console.WriteLine("During this turn, " + turn_player_color + " must escape from check.");
                 }
             }
         }
@@ -548,15 +550,35 @@ namespace gungi_cs
             SelectAndPrint(selected_piece, P.EMPTY);
 
             int[] location = SelectLocation();
-            if (!selected_piece.CanDropTo(location))
+            if (array.IsInCheck(turn_player_color))
+            {
+                if (selected_piece.CanDropTo(location) && array.IsOutOfCheckAfterDrop(selected_piece, location))
+                {
+                    selected_piece.MoveTo(location);
+                    Console.WriteLine("You escaped check by dropping [" + selected_piece.Char() + "] onto " + selected_piece.LocationStringRFT() + ". Press a key to end your turn.\n");
+                    Console.ReadKey(true);
+                }
+                else
+                {
+                    Console.WriteLine("Dropping to this location does not escape check: " + LocString(location) + ".");
+                    goto Beginning;
+                }
+            }
+            else if (!selected_piece.CanDropTo(location))
             {
                 Console.WriteLine("Can not drop a piece to this location: " + LocString(location) + ".");
                 goto Beginning;
             }
-
-            selected_piece.MoveTo(location);
-            Console.WriteLine("You dropped [" + selected_piece.Char() + "] onto " + selected_piece.LocationStringRFT() + ". Press a key to end your turn.\n");
-            Console.ReadKey(true);
+            else if (!array.IsOutOfCheckAfterDrop(selected_piece, location)) {
+                Console.WriteLine("Can not drop a piece that puts oneself in check: " + LocString(location) + ".");
+                goto Beginning;
+            }
+            else
+            {
+                selected_piece.MoveTo(location);
+                Console.WriteLine("You dropped [" + selected_piece.Char() + "] onto " + selected_piece.LocationStringRFT() + ". Press a key to end your turn.\n");
+                Console.ReadKey(true);
+            }
         }
 
         private void MoveOrAttack()
@@ -573,14 +595,58 @@ namespace gungi_cs
             int[] location = SelectLocation();
             Piece attacked_piece = null;
 
-            if (selected_piece.CanMoveTo(location))
+            if (array.IsInCheck(turn_player_color))
             {
+                if (selected_piece.CanMoveTo(location) && array.IsOutOfCheckAfterMove(selected_piece, location))
+                {
+                    selected_piece.MoveTo(location);
+                    Console.WriteLine("You escaped check by moving [" + selected_piece.Char() + "] from " + orig_location + " to " + selected_piece.LocationStringRFT() + ". Press a key to end your turn.\n");
+                    Console.ReadKey(true);
+                }
+                else if (selected_piece.CanAttackTo(location) && array.IsOutOfCheckAfterAttack(selected_piece, location))
+                {
+                    foreach (Piece p in board_pieces[1 - turn_player_color])
+                    {
+                        if (p.T() == location[P.Ti] && p.R() == location[P.Ri] && p.F() == location[P.Fi])
+                        {
+                            attacked_piece = p;
+                            p.GetsAttacked();
+                            break;
+                        }
+                    }
+                    if (attacked_piece == null)
+                    {
+                        Console.WriteLine("Enemy piece not found at this location: " + LocString(location) + ".");
+                        goto Beginning;
+                    }
+                    selected_piece.MoveTo(location);
+                    Console.WriteLine("You escaped check by moving [" + selected_piece.Char() + "] from " + orig_location + " to " + selected_piece.LocationStringRFT() + ", capturing an enemy [" + attacked_piece.Char() + "]. Press a key to end your turn.\n");
+                    Console.ReadKey(true);
+                }
+                else
+                {
+                    Console.WriteLine("Moving to this location does not escape check: " + LocString(location) + ".");
+                    goto Beginning;
+                }
+            }
+            else if (selected_piece.CanMoveTo(location))
+            {
+                if (!array.IsOutOfCheckAfterMove(selected_piece, location))
+                {
+                    Console.WriteLine("Can not move a piece that puts oneself in check: " + LocString(location) + ".");
+                    goto Beginning;
+                }
                 selected_piece.MoveTo(location);
                 Console.WriteLine("You moved [" + selected_piece.Char() + "] from " + orig_location + " to " + selected_piece.LocationStringRFT() + ". Press a key to end your turn.\n");
                 Console.ReadKey(true);
             }
             else if (selected_piece.CanAttackTo(location))
             {
+                if (!array.IsOutOfCheckAfterAttack(selected_piece, location))
+                {
+                    Console.WriteLine("Can not attack a piece that puts oneself in check: " + LocString(location) + ".");
+                    goto Beginning;
+                }
                 foreach (Piece p in board_pieces[1 - turn_player_color])
                 {
                     if (p.T() == location[P.Ti] && p.R() == location[P.Ri] && p.F() == location[P.Fi])

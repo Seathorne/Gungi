@@ -313,18 +313,18 @@ namespace gungi_cs
                                 {
                                     if (!IsInCheckAfterFakeMove(p, new int[] { t, r, f }))
                                     {
-                                        //Console.WriteLine(P.ConvertColor(_checked_player_color) + " may escape check by moving [" + p.Char() + "] from " + p.LocationStringRFT() + " to " + (r + 1) + "-" + (f + 1) + "-" + (t + 1) + ".");
+                                        Console.WriteLine(P.ConvertColor(_checked_player_color) + " may escape check by moving [" + p.Char() + "] from " + p.LocationStringRFT() + " to " + (r + 1) + "-" + (f + 1) + "-" + (t + 1) + ".");
                                         in_checkmate[_checked_player_color] = false;
-                                        return;
+                                        //return;
                                     }
                                 }
                                 else if (p.CanAttackTo(new int[] { t, r, f }))
                                 {
                                     if (!IsInCheckAfterFakeAttack(p, new int[] { t, r, f }))
                                     {
-                                        //Console.WriteLine(P.ConvertColor(_checked_player_color) + " may escape check by attacking [" + p.Char() + "] from " + p.LocationStringRFT() + " to " + (r + 1) + "-" + (f + 1) + "-" + (t + 1) + ".");
+                                        Console.WriteLine(P.ConvertColor(_checked_player_color) + " may escape check by attacking [" + p.Char() + "] from " + p.LocationStringRFT() + " to " + (r + 1) + "-" + (f + 1) + "-" + (t + 1) + ".");
                                         in_checkmate[_checked_player_color] = false;
-                                        return;
+                                        //return;
                                     }
                                 }
                             }
@@ -333,10 +333,24 @@ namespace gungi_cs
                 }
             }
 
+            bool only_has_pawns = true;
+            foreach (Piece p in hand_pieces)
+            {
+                if (p.PlayerColor() == _checked_player_color && p.Type() != P.PAW)
+                {
+                    only_has_pawns = false;
+                    break;
+                }
+            }
             Piece hand_piece = null;
             foreach (Piece p in hand_pieces)
             {
-                if (p.PlayerColor() == _checked_player_color)
+                if (only_has_pawns && p.Type() == P.PAW)
+                {
+                    hand_piece = p;
+                    break;
+                }
+                else if (p.PlayerColor() == _checked_player_color && p.Type() != P.PAW)
                 {
                     hand_piece = p;
                     break;
@@ -356,9 +370,9 @@ namespace gungi_cs
                                 {
                                     if (!IsInCheckAfterFakeDrop(_checked_player_color, hand_piece, new int[] { t, r, f }))
                                     {
-                                        //Console.WriteLine(P.ConvertColor(hand_piece.PlayerColor()) + " may escape check by dropping a piece onto " + (r + 1) + "-" + (f + 1) + "-" + (t + 1) + ".");
+                                        Console.WriteLine(P.ConvertColor(hand_piece.PlayerColor()) + " may escape check by dropping a piece onto " + (r + 1) + "-" + (f + 1) + "-" + (t + 1) + ".");
                                         in_checkmate[_checked_player_color] = false;
-                                        return;
+                                        //return;
                                     }
                                 }
                             }
@@ -366,6 +380,21 @@ namespace gungi_cs
                     }
                 }
             }
+        }
+
+        public bool IsOutOfCheckAfterMove(Piece _p, int[] _fake_location)
+        {
+            return !IsInCheckAfterFakeMove(_p, _fake_location);
+        }
+
+        public bool IsOutOfCheckAfterAttack(Piece _p, int[] _fake_location)
+        {
+            return !IsInCheckAfterFakeAttack(_p, _fake_location);
+        }
+
+        public bool IsOutOfCheckAfterDrop(Piece _p, int[] _fake_location)
+        {
+            return !IsInCheckAfterFakeDrop(_p.PlayerColor(), _p, _fake_location);
         }
 
         private bool IsInCheckAfterFakeMove(Piece _p, int[] _fake_location)
