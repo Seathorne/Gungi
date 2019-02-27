@@ -550,7 +550,7 @@ namespace gungi_cs
             SelectAndPrint(selected_piece, P.EMPTY);
 
             int[] location = SelectLocation();
-            if (array.IsInCheck(turn_player_color))
+            if (!setup_phase && array.IsInCheck(turn_player_color))
             {
                 if (selected_piece.CanDropTo(location) && array.IsOutOfCheckAfterDrop(selected_piece, location))
                 {
@@ -595,7 +595,7 @@ namespace gungi_cs
             int[] location = SelectLocation();
             Piece attacked_piece = null;
 
-            if (array.IsInCheck(turn_player_color))
+            if (!setup_phase && array.IsInCheck(turn_player_color))
             {
                 if (selected_piece.CanMoveTo(location) && array.IsOutOfCheckAfterMove(selected_piece, location))
                 {

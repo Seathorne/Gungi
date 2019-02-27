@@ -538,7 +538,7 @@ namespace gungi_cs
 
             foreach (Piece e_p in elevating_pieces)
             {
-                if (e_p.Moveset()[_piece.T(), _piece.R(), _piece.F()] == 1)
+                if (e_p.PlayerColor() == _piece.PlayerColor() && e_p.Moveset()[_piece.T(), _piece.R(), _piece.F()] == 1)
                 {
                     e_tier = Math.Min(P.TM - 1, Math.Max(e_tier, e_p.T() + 1));
                 }
